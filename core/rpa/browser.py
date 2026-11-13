@@ -16,8 +16,10 @@ Exemplo de uso::
 
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 from selenium import webdriver
@@ -483,6 +485,224 @@ class Navegador:
                 logger.success(f"Janela fechada: {titulo}")
                 return
         raise ErroRPA(f"Nenhuma janela com título contendo '{titulo}' foi encontrada.")
+
+    # ------------------------------------------------------------------
+    # Leitura da página / elementos extras
+    # ------------------------------------------------------------------
+    def obter_texto_pagina(self) -> str:
+        """Retorna todo o texto visível da página."""
+        texto = self.driver.find_element(By.TAG_NAME, "body").text
+        logger.info(f"Texto da página obtido ({len(texto)} caracteres).")
+        return texto
+
+    def obter_html(self) -> str:
+        """Retorna o HTML completo da página atual."""
+        html = self.driver.page_source
+        logger.info(f"HTML da página obtido ({len(html)} caracteres).")
+        return html
+
+    def contar_elementos(self, seletor) -> int:
+        """Conta quantos elementos casam com o seletor."""
+        by, valor = self._converter_seletor(seletor)
+        total = len(self.driver.find_elements(by, valor))
+        logger.info(f"{total} elemento(s) encontrados para {seletor}")
+        return total
+
+    def aguardar_pagina_carregar(self) -> None:
+        """Aguarda a página terminar de carregar (document.readyState)."""
+        self._esperar_carregamento()
+        logger.success("Página carregada.")
+
+    def aguardar_texto_na_pagina(self, texto: str, tempo_max: int | None = None) -> bool:
+        """Aguarda um texto aparecer em qualquer lugar da página."""
+        tempo = tempo_max if tempo_max is not None else self.tempo_timeout
+        try:
+            WebDriverWait(self.driver, tempo).until(
+                EC.text_to_be_present_in_element((By.TAG_NAME, "body"), texto)
+            )
+            logger.success(f"Texto encontrado na página: {texto[:40]}")
+            return True
+        except Exception:  # noqa: BLE001
+            logger.warning(f"Texto não apareceu na página em {tempo}s: {texto[:40]}")
+            return False
+
+    def aguardar_elemento_sumir(self, seletor, tempo_max: int | None = None) -> bool:
+        """Aguarda um elemento desaparecer da página."""
+        tempo = tempo_max if tempo_max is not None else self.tempo_timeout
+        by, valor = self._converter_seletor(seletor)
+        try:
+            WebDriverWait(self.driver, tempo).until(
+                EC.invisibility_of_element_located((by, valor))
+            )
+            logger.success(f"Elemento sumiu: {seletor}")
+            return True
+        except Exception:  # noqa: BLE001
+            logger.warning(f"Elemento continuou visível após {tempo}s: {seletor}")
+            return False
+
+    def clicar_se_existir(self, seletor) -> bool:
+        """Clica no elemento apenas se ele existir; devolve se clicou."""
+        if not self.elemento_existe(seletor):
+            logger.warning(f"Elemento não existe (clique ignorado): {seletor}")
+            return False
+        self.clicar_elemento(seletor)
+        return True
+
+    def limpar_campo(self, seletor) -> None:
+        """Limpa o conteúdo de um campo de texto."""
+        elemento = self._localizar_ou_erro(seletor, "limpar campo")
+        elemento.clear()
+        logger.success(f"Campo limpo: {seletor}")
+
+    def focar_elemento(self, seletor) -> None:
+        """Coloca o foco em um elemento."""
+        elemento = self._localizar_ou_erro(seletor, "focar elemento")
+        self.driver.execute_script("arguments[0].focus();", elemento)
+        logger.info(f"Foco colocado em: {seletor}")
+
+    def executar_js(self, script: str, *argumentos) -> Any:
+        """Executa JavaScript na página e devolve o resultado."""
+        resultado = self.driver.execute_script(script, *argumentos)
+        logger.info("JavaScript executado.")
+        return resultado
+
+    def obter_opcoes_select(self, seletor) -> list[str]:
+        """Lista os textos das opções de um ``<select>``."""
+        elemento = self._localizar_ou_erro(seletor, "listar opções do select")
+        opcoes = [opcao.text for opcao in Select(elemento).options]
+        logger.info(f"Opções do select {seletor}: {opcoes}")
+        return opcoes
+
+    def obter_valor_select(self, seletor) -> str:
+        """Retorna o valor selecionado em um ``<select>``."""
+        elemento = self._localizar_ou_erro(seletor, "obter valor do select")
+        valor = Select(elemento).first_selected_option.get_attribute("value") or ""
+        logger.info(f"Valor selecionado em {seletor}: {valor}")
+        return valor
+
+    def ler_tabela(self, seletor) -> list[list[str]]:
+        """Lê uma tabela HTML e devolve uma lista de linhas (listas de células)."""
+        tabela = self._localizar_ou_erro(seletor, "ler tabela")
+        linhas: list[list[str]] = []
+        for linha in tabela.find_elements(By.CSS_SELECTOR, "tr"):
+            celulas = [celula.text.strip() for celula in linha.find_elements(By.CSS_SELECTOR, "th,td")]
+            if celulas:
+                linhas.append(celulas)
+        logger.success(f"Tabela lida: {len(linhas)} linha(s).")
+        return linhas
+
+    def capturar_elemento(self, seletor, nome: str = "elemento") -> Path:
+        """Salva uma captura de tela apenas do elemento."""
+        elemento = self._localizar_ou_erro(seletor, "capturar elemento")
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        caminho = PASTA_OUTPUT / f"{stamp}_{nome}.png"
+        elemento.screenshot(str(caminho))
+        logger.success(f"Captura do elemento salva: {caminho}")
+        return caminho
+
+    # ------------------------------------------------------------------
+    # Cookies / abas / alertas
+    # ------------------------------------------------------------------
+    def obter_cookies(self) -> list[dict[str, Any]]:
+        """Retorna os cookies da sessão atual."""
+        cookies = self.driver.get_cookies()
+        logger.info(f"{len(cookies)} cookie(s) obtidos.")
+        return cookies
+
+    def adicionar_cookie(
+        self,
+        nome: str,
+        valor: str,
+        dominio: str | None = None,
+        caminho: str = "/",
+    ) -> None:
+        """Adiciona um cookie à sessão atual."""
+        cookie: dict[str, Any] = {"name": nome, "value": valor, "path": caminho}
+        if dominio:
+            cookie["domain"] = dominio
+        self.driver.add_cookie(cookie)
+        logger.success(f"Cookie adicionado: {nome}")
+
+    def salvar_cookies(self, caminho: str | Path) -> Path:
+        """Salva os cookies atuais em um arquivo JSON."""
+        caminho = Path(caminho)
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        caminho.write_text(
+            json.dumps(self.driver.get_cookies(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        logger.success(f"Cookies salvos em: {caminho}")
+        return caminho
+
+    def carregar_cookies(self, caminho: str | Path) -> int:
+        """Carrega cookies de um arquivo JSON e devolve quantos foram adicionados."""
+        caminho = Path(caminho)
+        if not caminho.is_file():
+            raise ErroRPA(f"Arquivo de cookies não encontrado: {caminho}")
+        cookies = json.loads(caminho.read_text(encoding="utf-8"))
+        total = 0
+        for cookie in cookies:
+            try:
+                self.driver.add_cookie(cookie)
+                total += 1
+            except Exception:  # noqa: BLE001
+                logger.warning(f"Cookie ignorado: {cookie.get('name')}")
+        logger.success(f"{total} cookie(s) carregados de {caminho.name}")
+        return total
+
+    def abrir_nova_aba(self, url: str | None = None) -> None:
+        """Abre uma nova aba e, opcionalmente, navega para uma URL."""
+        self.driver.switch_to.new_window("tab")
+        if url:
+            self.driver.get(url)
+            self._esperar_carregamento()
+        logger.success(f"Nova aba aberta{' em ' + url if url else ''}.")
+
+    def fechar_aba_atual(self) -> None:
+        """Fecha a aba atual e volta para a última aba restante."""
+        self.driver.close()
+        abas = self.driver.window_handles
+        if abas:
+            self.driver.switch_to.window(abas[-1])
+            logger.success("Aba atual fechada.")
+        else:
+            logger.warning("Última aba fechada; o navegador ficou sem janelas.")
+
+    def mudar_para_aba(self, indice: int = -1) -> None:
+        """Troca para a aba pelo índice (0 = primeira, -1 = última)."""
+        abas = self.driver.window_handles
+        if not abas:
+            raise ErroRPA("Não há abas abertas.")
+        self.driver.switch_to.window(abas[indice])
+        logger.info(f"Trocado para a aba {indice}.")
+
+    def _alerta(self):
+        try:
+            return WebDriverWait(self.driver, self.tempo_espera).until(EC.alert_is_present())
+        except Exception as erro:  # noqa: BLE001
+            raise ErroRPA("Nenhum alerta/diálogo presente na página.") from erro
+
+    def aceitar_alerta(self) -> str:
+        """Aceita um alerta/diálogo e devolve o texto dele."""
+        alerta = self._alerta()
+        texto = alerta.text
+        alerta.accept()
+        logger.success(f"Alerta aceito: {texto[:60]}")
+        return texto
+
+    def recusar_alerta(self) -> str:
+        """Recusa (cancela) um alerta/diálogo e devolve o texto dele."""
+        alerta = self._alerta()
+        texto = alerta.text
+        alerta.dismiss()
+        logger.info(f"Alerta recusado: {texto[:60]}")
+        return texto
+
+    def obter_texto_alerta(self) -> str:
+        """Retorna o texto de um alerta/diálogo sem fechá-lo."""
+        texto = self._alerta().text
+        logger.info(f"Texto do alerta: {texto[:60]}")
+        return texto
 
     # ------------------------------------------------------------------
     # Downloads

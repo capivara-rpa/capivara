@@ -26,6 +26,22 @@ from core.tratador import ErroRPA
 from settings.parametros import SMTP_ORIGEM, SMTP_PORTA, SMTP_SENHA, SMTP_SERVIDOR, SMTP_USUARIO
 
 
+def _normalizar_lista(valor: list[str] | tuple[str, ...] | str | None) -> list[str]:
+    if not valor:
+        return []
+    if isinstance(valor, str):
+        return [item.strip() for item in valor.split(",") if item.strip()]
+    return [str(item).strip() for item in valor if str(item).strip()]
+
+
+def _conectar_smtp(servidor: str, porta: int) -> smtplib.SMTP:
+    if porta == 465:
+        return smtplib.SMTP_SSL(servidor, porta)
+    conexao = smtplib.SMTP(servidor, porta)
+    conexao.starttls()
+    return conexao
+
+
 def enviar_email(
     destinatarios: list[str] | tuple[str, ...] | str,
     assunto: str,
@@ -36,8 +52,12 @@ def enviar_email(
     usuario: str | None = None,
     senha: str | None = None,
     remetente: str | None = None,
+    html: bool = False,
+    cc: list[str] | tuple[str, ...] | str | None = None,
+    bcc: list[str] | tuple[str, ...] | str | None = None,
+    responder_para: str | None = None,
 ) -> None:
-    """Envia um e-mail em texto simples, com anexos opcionais.
+    """Envia um e-mail (texto ou HTML), com cópias e anexos opcionais.
 
     Parâmetros que não forem informados são lidos do ``.env``.
     """
@@ -47,8 +67,11 @@ def enviar_email(
     senha = SMTP_SENHA if senha is None else senha
     remetente = remetente or SMTP_ORIGEM or usuario
 
-    if isinstance(destinatarios, str):
-        destinatarios = [destinatarios]
+    para = _normalizar_lista(destinatarios)
+    copia = _normalizar_lista(cc)
+    copia_oculta = _normalizar_lista(bcc)
+    if not para:
+        raise ErroRPA("Informe ao menos um destinatário.")
 
     if not servidor or not remetente:
         raise ErroRPA(
@@ -57,9 +80,17 @@ def enviar_email(
 
     mensagem = EmailMessage()
     mensagem["From"] = remetente
-    mensagem["To"] = ", ".join(destinatarios)
+    mensagem["To"] = ", ".join(para)
+    if copia:
+        mensagem["Cc"] = ", ".join(copia)
+    if responder_para:
+        mensagem["Reply-To"] = responder_para
     mensagem["Subject"] = assunto
-    mensagem.set_content(corpo or "")
+    if html:
+        mensagem.set_content("Este e-mail contém conteúdo HTML.")
+        mensagem.add_alternative(corpo or "", subtype="html")
+    else:
+        mensagem.set_content(corpo or "")
 
     for anexo in anexos or []:
         caminho = Path(anexo)
@@ -72,22 +103,53 @@ def enviar_email(
             filename=caminho.name,
         )
 
-    logger.info(
-        f"Enviando e-mail para {len(destinatarios)} destinatário(s) via {servidor}:{porta}..."
-    )
+    todos = para + copia + copia_oculta
+    logger.info(f"Enviando e-mail para {len(todos)} destinatário(s) via {servidor}:{porta}...")
 
-    if porta == 465:
-        conexao = smtplib.SMTP_SSL(servidor, porta)
-    else:
-        conexao = smtplib.SMTP(servidor, porta)
-        conexao.starttls()
-
+    conexao = _conectar_smtp(servidor, porta)
     try:
         if usuario and senha:
             conexao.login(usuario, senha)
-        conexao.send_message(mensagem)
-        logger.success(f"E-mail enviado para: {', '.join(destinatarios)}")
+        conexao.send_message(mensagem, to_addrs=todos)
+        logger.success(f"E-mail enviado para: {', '.join(todos)}")
     except Exception as erro:  # noqa: BLE001
         raise ErroRPA(f"Falha ao enviar e-mail: {erro}") from erro
+    finally:
+        conexao.quit()
+
+
+def enviar_email_html(
+    destinatarios: list[str] | tuple[str, ...] | str,
+    assunto: str,
+    html: str,
+    **kwargs,
+) -> None:
+    """Atalho para enviar um e-mail com corpo HTML."""
+    enviar_email(destinatarios, assunto, corpo=html, html=True, **kwargs)
+
+
+def testar_smtp(
+    servidor: str | None = None,
+    porta: int | None = None,
+    usuario: str | None = None,
+    senha: str | None = None,
+) -> bool:
+    """Testa a conexão/login SMTP e devolve ``True`` se estiver tudo certo."""
+    servidor = servidor or SMTP_SERVIDOR
+    porta = porta or SMTP_PORTA
+    usuario = SMTP_USUARIO if usuario is None else usuario
+    senha = SMTP_SENHA if senha is None else senha
+    if not servidor:
+        raise ErroRPA("SMTP_SERVIDOR não configurado no .env.")
+    conexao = _conectar_smtp(servidor, porta)
+    try:
+        if usuario and senha:
+            conexao.login(usuario, senha)
+        codigo, mensagem = conexao.noop()
+        logger.success(f"SMTP OK em {servidor}:{porta} ({codigo} {mensagem.decode(errors='ignore')})")
+        return True
+    except Exception as erro:  # noqa: BLE001
+        logger.error(f"Falha no teste SMTP: {erro}")
+        return False
     finally:
         conexao.quit()

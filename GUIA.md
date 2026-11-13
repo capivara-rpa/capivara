@@ -1,4 +1,4 @@
-# Guia de instalação e uso — Template RPA Brasil
+# Guia de instalação e uso — Capivara 🦫
 
 Este guia leva você **do zero** até um robô rodando na Control Room, com agente
 instalado e **token do dispositivo** configurado. Se você só quer a visão geral,

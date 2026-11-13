@@ -19,9 +19,12 @@ Fluxo típico::
 
 from __future__ import annotations
 
+import csv
 import json
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
@@ -100,4 +103,113 @@ def seletores(caminho: str | Path, tipo: str = "relativo") -> dict[str, str]:
     }
 
 
-__all__ = ["Elemento", "TIPOS", "carregar", "seletores"]
+def _validar_tipo(tipo: str) -> str:
+    chave = TIPOS.get(tipo)
+    if chave is None:
+        raise ErroRPA(f"Tipo de seletor inválido: {tipo!r}. Use: {', '.join(sorted(TIPOS))}.")
+    return chave
+
+
+def obter(caminho: str | Path, nome: str, tipo: str = "relativo") -> str:
+    """Retorna o seletor de um elemento pelo nome exato."""
+    chave = _validar_tipo(tipo)
+    elementos = carregar(caminho)
+    elemento = elementos.get(nome)
+    if elemento is None:
+        raise ErroRPA(f"Elemento '{nome}' não encontrado no TrackTab.")
+    return getattr(elemento, chave)
+
+
+def buscar(
+    caminho: str | Path,
+    nome_contem: str,
+    tipo: str = "relativo",
+) -> dict[str, str]:
+    """Busca elementos cujo nome contenha o texto (sem diferenciar maiúsculas)."""
+    chave = _validar_tipo(tipo)
+    alvo = nome_contem.lower()
+    encontrados = {
+        nome: getattr(elemento, chave)
+        for nome, elemento in carregar(caminho).items()
+        if alvo in nome.lower()
+    }
+    logger.info(f"TrackTab: {len(encontrados)} elemento(s) casaram com '{nome_contem}'.")
+    return encontrados
+
+
+def listar_nomes(caminho: str | Path) -> list[str]:
+    """Lista os nomes dos elementos capturados."""
+    return list(carregar(caminho))
+
+
+def para_lista(caminho: str | Path) -> list[dict[str, Any]]:
+    """Converte o export em uma lista de dicionários (pronta para DataFrame/CSV)."""
+    return [
+        {
+            "nome": elemento.nome,
+            "tag": elemento.tag,
+            "texto": elemento.texto,
+            "relativo": elemento.relativo,
+            "custom": elemento.custom,
+            "completo": elemento.completo,
+        }
+        for elemento in carregar(caminho).values()
+    ]
+
+
+def exportar_csv(
+    caminho_export: str | Path,
+    caminho_csv: str | Path,
+    tipo: str = "relativo",
+) -> Path:
+    """Exporta ``nome`` e o seletor escolhido para um CSV."""
+    chave = _validar_tipo(tipo)
+    caminho_csv = Path(caminho_csv)
+    caminho_csv.parent.mkdir(parents=True, exist_ok=True)
+    with caminho_csv.open("w", encoding="utf-8", newline="") as arquivo:
+        escritor = csv.DictWriter(arquivo, fieldnames=["nome", "seletor"])
+        escritor.writeheader()
+        for nome, elemento in carregar(caminho_export).items():
+            escritor.writerow({"nome": nome, "seletor": getattr(elemento, chave)})
+    logger.success(f"TrackTab exportado para CSV: {caminho_csv}")
+    return caminho_csv
+
+
+def resumo(caminho: str | Path) -> dict[str, Any]:
+    """Resumo do export: total, tags e quantos elementos têm cada seletor."""
+    elementos = carregar(caminho)
+    dados = {
+        "total": len(elementos),
+        "tags": dict(Counter(elemento.tag for elemento in elementos.values())),
+        "com_relativo": sum(1 for elemento in elementos.values() if elemento.relativo),
+        "com_custom": sum(1 for elemento in elementos.values() if elemento.custom),
+        "com_completo": sum(1 for elemento in elementos.values() if elemento.completo),
+    }
+    logger.info(f"TrackTab: resumo {dados['total']} elemento(s).")
+    return dados
+
+
+def combinar(*caminhos: str | Path) -> dict[str, Elemento]:
+    """Junta vários exports do TrackTab em um único dicionário."""
+    if not caminhos:
+        raise ErroRPA("Informe ao menos um export do TrackTab.")
+    combinados: dict[str, Elemento] = {}
+    for caminho in caminhos:
+        combinados.update(carregar(caminho))
+    logger.success(f"TrackTab: {len(combinados)} elemento(s) combinados.")
+    return combinados
+
+
+__all__ = [
+    "Elemento",
+    "TIPOS",
+    "carregar",
+    "seletores",
+    "obter",
+    "buscar",
+    "listar_nomes",
+    "para_lista",
+    "exportar_csv",
+    "resumo",
+    "combinar",
+]

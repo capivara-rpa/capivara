@@ -50,3 +50,7 @@ app/robos/
 # ===== Selenium =====
 .geckodriver.log
 chromedriver
+
+# ===== Landing page e artefatos locais de teste =====
+landing/
+/teste_popup.zip

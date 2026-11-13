@@ -322,3 +322,180 @@ Tudo local no SQLite (`data/orquestrador.db`), sem dependência externa.
 
 - **Expurgo de auditoria**: `expurgar_auditoria(dias)` e
   `exportar_auditoria_csv(recurso, ator)`.
+
+---
+
+# 🧰 Utilidades novas (+50 funções)
+
+Adicionadas na v1.1 do Capivara. Todas seguem o padrão do motor: nomes em
+português, log automático e `ErroRPA` em caso de uso inválido.
+
+## 📝 Texto — `from core.rpa import texto` (`core/rpa/texto.py`)
+
+| Função | O que faz |
+|---|---|
+| `limpar_texto(texto, reduzir_espacos=True)` | Remove caracteres de controle e espaços sobrando |
+| `remover_acentos(texto)` | Troca acentos pelas letras sem acento |
+| `normalizar_espacos(texto)` | Junta tabs/quebras em um espaço |
+| `slug(texto, separador="-")` | Gera identificador para URL/arquivo |
+| `capitalizar_nome(nome)` | Capitaliza preservando `de/da/dos` |
+| `extrair_numeros(texto)` | Lista grupos de dígitos |
+| `extrair_emails(texto)` / `extrair_urls(texto)` | Listas únicas na ordem de aparição |
+| `mascarar_email(email)` | `arthur@x.com` → `a****r@x.com` |
+| `contar_palavras(texto)` | Conta palavras |
+| `similaridade(a, b)` | Similaridade de 0.0 a 1.0 |
+| `encontrar_padrao(texto, padrao, grupo=0)` | Todas as ocorrências de uma regex |
+| `substituir_padrao(texto, padrao, substituto, contar=0)` | Substituição por regex |
+| `truncar_texto(texto, limite=80, sufixo="...")` | Corta com sufixo |
+
+```python
+from core.rpa import texto
+
+texto.slug("Relatório de Clientes 2026")        # 'relatorio-de-clientes-2026'
+texto.extrair_emails("fale com a@b.com")        # ['a@b.com']
+texto.capitalizar_nome("ana de souza")          # 'Ana de Souza'
+```
+
+## 🇧🇷 Validação / formatos BR — `from core.rpa import validacao` (`core/rpa/validacao.py`)
+
+| Função | O que faz |
+|---|---|
+| `limpar_digitos(valor)` | Mantém só números |
+| `validar_cpf(cpf)` / `formatar_cpf(cpf)` / `gerar_cpf(formatar=True)` | CPF completo |
+| `validar_cnpj(cnpj)` / `formatar_cnpj(cnpj)` / `gerar_cnpj(formatar=True)` | CNPJ completo |
+| `validar_cpf_ou_cnpj(documento)` | Detecta pelo tamanho |
+| `formatar_documento(documento)` | Formata CPF ou CNPJ |
+| `validar_cep(cep)` / `formatar_cep(cep)` | CEP |
+| `validar_telefone_br(tel)` / `formatar_telefone_br(tel)` | Fixo/celular com DDD |
+| `validar_email(email)` | Formato de e-mail |
+| `validar_data(data, formato=)` | Data válida |
+| `converter_data(data, de=, para=)` / `formatar_data_br(data)` | Conversão de datas |
+| `adicionar_dias_uteis(data, dias, feriados=None)` | Soma/subtrai dias úteis |
+| `dias_uteis_entre(inicio, fim, feriados=None)` | Conta dias úteis |
+| `proximo_dia_util(data, feriados=None)` | Próximo dia útil |
+| `idade(nascimento, referencia=None)` | Anos completos |
+| `formatar_moeda_br(valor)` / `converter_moeda_br(texto)` | `R$ 1.234,56` ↔ `1234.56` |
+
+```python
+from core.rpa import validacao
+
+validacao.validar_cpf("529.982.247-25")          # True
+validacao.adicionar_dias_uteis("2026-01-02", 1)  # date(2026, 1, 5)
+validacao.formatar_moeda_br(1234.56)             # 'R$ 1.234,56'
+```
+
+## 🗄️ Banco SQLite — `from core.rpa import banco` (`core/rpa/banco.py`)
+
+| Função | O que faz |
+|---|---|
+| `conectar(caminho=":memory:")` | Abre conexão (row factory por nome) |
+| `executar(conexao, sql, parametros=())` | SQL livre com commit |
+| `consultar(conexao, sql, parametros=())` | SELECT → lista de dicionários |
+| `consultar_dataframe(conexao, sql, parametros=())` | SELECT → DataFrame |
+| `inserir(conexao, tabela, dados)` | INSERT e devolve o id |
+| `atualizar(conexao, tabela, dados, onde, parametros_onde=())` | UPDATE |
+| `apagar(conexao, tabela, onde, parametros=())` | DELETE |
+| `listar_tabelas(conexao)` / `tabela_existe(conexao, tabela)` | Metadados |
+| `descrever_tabela(conexao, tabela)` | Colunas, tipos e PK |
+| `contar_registros(conexao, tabela, onde=None, parametros=())` | COUNT |
+| `criar_tabela(conexao, tabela, colunas, chave_primaria=None)` | CREATE TABLE |
+| `importar_csv(conexao, tabela, caminho, separador=",")` | CSV → tabela |
+| `exportar_csv(conexao, tabela, caminho, separador=";")` | Tabela → CSV |
+| `fechar(conexao)` | Fecha a conexão |
+
+```python
+from core.rpa import banco
+
+con = banco.conectar("data/input/dados.db")
+banco.criar_tabela(con, "clientes", {"id": "INTEGER", "nome": "TEXT"}, "id")
+banco.inserir(con, "clientes", {"nome": "Ana"})
+banco.consultar(con, "SELECT * FROM clientes WHERE nome = ?", ("Ana",))
+banco.fechar(con)
+```
+
+## 🔐 Segurança — `from core.rpa import seguranca` (`core/rpa/seguranca.py`)
+
+| Função | O que faz |
+|---|---|
+| `gerar_senha(tamanho=16, simbolos=True)` | Senha forte aleatória |
+| `gerar_token(tamanho=32)` | Token URL-safe |
+| `hash_sha256(texto)` / `hash_arquivo(caminho, algoritmo="sha256")` | Hashes |
+| `base64_codificar(texto)` / `base64_decodificar(texto)` | Base64 |
+| `criptografar_texto(texto, chave=None)` / `descriptografar_texto(token, chave=None)` | Fernet (usa `VAULT_CHAVE` se omitida) |
+| `mascarar_segredo(valor, manter=2)` | Mascara para log |
+| `comparar_seguro(a, b)` | Comparação em tempo constante |
+| `gerar_uuid()` | UUID v4 |
+
+```python
+from core.rpa import seguranca
+
+token = seguranca.criptografar_texto("segredo", chave="minha-frase")
+seguranca.descriptografar_texto(token, chave="minha-frase")
+seguranca.mascarar_segredo("123456")   # '****56'
+```
+
+## 🖥️ Sistema — `from core.rpa import sistema` (`core/rpa/sistema.py`)
+
+| Função | O que faz |
+|---|---|
+| `executar_comando(comando, pasta=None, tempo_max=60, verificar=False)` | Roda comando e devolve `{codigo, saida, erro}` |
+| `abrir_programa(programa, argumentos=None)` | Abre executável/.app |
+| `abrir_pasta(caminho)` / `abrir_arquivo(caminho)` | Abre no programa padrão |
+| `obter_variavel_ambiente(nome, padrao=None)` / `definir_variavel_ambiente(nome, valor)` | Env vars |
+| `obter_info_sistema()` | SO, Python, máquina, usuário, pasta |
+| `pasta_temporaria()` | Pasta temp do SO |
+| `esperar_arquivo(caminho, tempo_max=60)` / `esperar_pasta(...)` | Aguarda aparecer |
+| `notificar_desktop(titulo, mensagem)` / `tocar_som()` | Aviso nativo |
+
+## 🔔 Notificações — `from core.rpa import notificacoes` (`core/rpa/notificacoes.py`)
+
+| Função | O que faz |
+|---|---|
+| `enviar_webhook(url, payload, timeout=30)` | POST JSON genérico |
+| `enviar_slack(webhook, mensagem, titulo=None)` | Incoming Webhook do Slack |
+| `enviar_teams(webhook, mensagem, titulo=None)` | MessageCard do Teams |
+| `enviar_discord(webhook, mensagem, usuario="Capivara")` | Webhook do Discord |
+| `enviar_telegram(bot_token, chat_id, mensagem)` | Telegram Bot API |
+
+```python
+from core.rpa import notificacoes
+
+notificacoes.enviar_slack(webhook, "Relatório gerado!", titulo="Robô de clientes")
+notificacoes.enviar_telegram(BOT_TOKEN, CHAT_ID, "Job concluído ✅")
+```
+
+## ➕ Extensões nos módulos existentes
+
+| Módulo / arquivo | Funções novas |
+|---|---|
+| `arquivo` (`core/rpa/arquivo.py`) | `ler_json`, `escrever_json`, `ler_ini`, `escrever_ini`, `calcular_hash`, `comparar_arquivos`, `ler_ultimas_linhas`, `contar_linhas_arquivo`, `substituir_no_arquivo`, `juntar_arquivos`, `dividir_arquivo`, `tamanho_arquivo` |
+| `dados` (`core/rpa/dados.py`) | `renomear_colunas`, `remover_duplicados`, `preencher_vazios`, `substituir_valores`, `ordenar_df`, `selecionar_colunas`, `dividir_df`, `amostrar_df`, `resumo_estatistico`, `dataframe_para_markdown`, `tratar_datas`, `calcular_percentual`, `pivotar`, `derreter` |
+| `api` (`core/rpa/api.py`) | `ClienteAPI.api_patch/api_head/api_upload/api_download` + `api_put`, `api_delete`, `api_patch`, `api_upload`, `api_download` |
+| `email` (`core/rpa/email.py`) | `enviar_email(..., html=True, cc=, bcc=, responder_para=)`, `enviar_email_html`, `testar_smtp` |
+| `tracktab` (`core/rpa/tracktab.py`) | `obter`, `buscar`, `listar_nomes`, `para_lista`, `exportar_csv`, `resumo`, `combinar` |
+
+### Navegador (novas ações em `core/rpa/browser.py`)
+
+| Função | O que faz |
+|---|---|
+| `obter_texto_pagina()` / `obter_html()` | Texto visível / HTML completo |
+| `contar_elementos(seletor)` | Quantos elementos casam |
+| `aguardar_pagina_carregar()` | Espera `document.readyState` |
+| `aguardar_texto_na_pagina(texto)` | Espera texto aparecer |
+| `aguardar_elemento_sumir(seletor)` | Espera o elemento sumir |
+| `clicar_se_existir(seletor)` | Clica só se existir |
+| `limpar_campo(seletor)` / `focar_elemento(seletor)` | Limpa / foca |
+| `executar_js(script, *args)` | Executa JavaScript |
+| `obter_opcoes_select(seletor)` / `obter_valor_select(seletor)` | Opções / valor do select |
+| `ler_tabela(seletor)` | Tabela HTML → lista de linhas |
+| `capturar_elemento(seletor, nome)` | Print só do elemento |
+| `obter_cookies()` / `adicionar_cookie(...)` | Cookies da sessão |
+| `salvar_cookies(caminho)` / `carregar_cookies(caminho)` | Persistência de cookies |
+| `abrir_nova_aba(url=None)` / `fechar_aba_atual()` / `mudar_para_aba(indice=-1)` | Abas |
+| `aceitar_alerta()` / `recusar_alerta()` / `obter_texto_alerta()` | Alertas/diálogos |
+
+> Resumo: **+50 funções novas** (texto, validação BR, banco, segurança, sistema,
+> notificações) **+ extensões** em arquivos, dados, API, e-mail, navegador e
+> TrackTab. Tudo coberto por pytest (`tests/test_texto.py`,
+> `test_validacao.py`, `test_banco.py`, `test_rpa_seguranca.py` e
+> `test_utilidades.py`).

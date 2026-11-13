@@ -3,14 +3,19 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "template-python-rpa-brasil"
-version = "1.0.0"
-description = "Template low-code de RPA para a comunidade Python Brasil"
+name = "capivara"
+version = "1.1.0"
+description = "Capivara — RPA low-code em Python, 100% em português"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
-keywords = ["rpa", "selenium", "automacao", "pandas", "low-code"]
-authors = [{ name = "Comunidade Python Brasil" }]
+license = { file = "LICENSE" }
+keywords = ["rpa", "selenium", "automacao", "pandas", "low-code", "capivara"]
+authors = [{ name = "Capivara", email = "capivara@arthurfaria.tech" }]
+
+[project.urls]
+Homepage = "https://github.com/capivara-rpa/capivara"
+Documentation = "https://github.com/capivara-rpa/capivara#readme"
+Issues = "https://github.com/capivara-rpa/capivara/issues"
 
 dependencies = [
     "selenium>=4.20.0",

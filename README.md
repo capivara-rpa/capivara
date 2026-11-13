@@ -1,9 +1,9 @@
-# Template Python RPA Brasil 🇧🇷
+# Capivara 🦫 — RPA em Python, 100% em português
 
-Um **template low-code de RPA** feito para a comunidade Python — do dev que nunca
-abriu um Python até o dev sênior que precisa de um atalho produtivo. As bibliotecas
-complexas (Selenium, pandas, requests...) viraram **funções em português** e todo o
-processo aparece **colorido no terminal**.
+**Deixa que a Capivara faz.** Um **template low-code de RPA** feito para a
+comunidade Python — do dev que nunca abriu um Python até o dev sênior que precisa
+de um atalho produtivo. As bibliotecas complexas (Selenium, pandas, requests...)
+viraram **funções em português** e todo o processo aparece **colorido no terminal**.
 
 ```text
 🗃️ Web:   navegador.abrir_url(...)
@@ -14,9 +14,11 @@ processo aparece **colorido no terminal**.
 
 📦 ARQ:   listar_arquivos(...) · baixar_arquivo(...) · extrair_zip(...)
 
-🌐 API:   api_get(...) · api_post(...)
+🌐 API:   api_get(...) · api_post(...) · api_upload(...) · api_download(...)
 
-✉️ Email: enviar_email(...)
+✉️ Email: enviar_email(...) · enviar_email_html(...)
+
+🧰 Útil:  validar_cpf(...) · gerar_senha(...) · notificacoes.enviar_slack(...)
 ```
 
 ---
@@ -31,13 +33,14 @@ processo aparece **colorido no terminal**.
 6. [Como executar](#como-executar)
 7. [Configuração (.env)](#configuração-env)
 8. [Criando seu primeiro robô](#criando-seu-primeiro-robô)
-9. [Modo dev vs prod (headless)](#modo-dev-vs-prod-headless)
-10. [Rodando no Docker](#rodando-no-docker)
-11. [Control Room (orquestrador)](#control-room-orquestrador)
-12. [Monitor de execuções (trace)](#monitor-de-execuções-trace)
-13. [Testes automatizados](#testes-automatizados)
-14. [Dicas para a comunidade](#dicas-para-a-comunidade)
-15. [Documentação complementar](#documentação-complementar)
+9. [Utilidades prontas (+50 funções)](#utilidades-prontas-50-funções)
+10. [Modo dev vs prod (headless)](#modo-dev-vs-prod-headless)
+11. [Rodando no Docker](#rodando-no-docker)
+12. [Control Room (orquestrador)](#control-room-orquestrador)
+13. [Monitor de execuções (trace)](#monitor-de-execuções-trace)
+14. [Testes automatizados](#testes-automatizados)
+15. [Dicas para a comunidade](#dicas-para-a-comunidade)
+16. [Documentação complementar](#documentação-complementar)
 
 ---
 
@@ -65,12 +68,13 @@ processo aparece **colorido no terminal**.
 ## Estrutura de pastas
 
 ```text
-Template_Python_RPA_Brasil/
+capivara/
 ├── app/                    # 🔌 Componentes da aplicação (o SEU robô)
 │   ├── main.py             #    Ponto de entrada / orquestrador
 │   └── fluxos/             #    Cada tarefa de negócio em um arquivo
 ├── core/                   # ⚙️ Motor low-code reutilizável
-│   ├── rpa/                #    browser · dados · arquivo · api · email · interacao
+│   ├── rpa/                #    browser · dados · arquivo · api · email · banco
+│   │                       #    texto · validacao · seguranca · sistema · notificacoes
 │   ├── monitor/            #    Painel de trace das execuções (SQLite + web local)
 │   ├── control_room/       #    Orquestrador: máquinas, processos, jobs e agente
 │   ├── logger.py           #    Logging colorido (Loguru)
@@ -124,7 +128,7 @@ scripts\install.bat
 
 ```bash
 # 1. Acesse a raiz do projeto
-cd Template_Python_RPA_Brasil
+cd capivara
 
 # 2. Crie um ambiente virtual isolado
 python -m venv .venv
@@ -162,9 +166,9 @@ scripts\run.bat --dados           # Windows
 Você verá algo assim no terminal:
 
 ```text
-10:47:07.646 | DEBUG    | Logger configurado para o processo 'rpa-template'. Arquivo: ...
+10:47:07.646 | DEBUG    | Logger configurado para o processo 'capivara'. Arquivo: ...
 ━━━━━━━━━━━━━━━━━━━━━━━━━
-  Template RPA Brasil
+  Capivara 🦫 — Deixa que a Capivara faz.
 ━━━━━━━━━━━━━━━━━━━━━━━━━
 10:47:12.747 | SUCCESS  | Filtro aplicado: 5 de 10 linhas
 10:47:13.628 | SUCCESS  | Planilha com 3 abas salva: data/output/relatorio_clientes.xlsx
@@ -236,6 +240,43 @@ python app/main.py --form
 
 Pronto: o robô abre o site, preenche, mostra **cada passo colorido no terminal**
 e salva prints em `data/output/`. Isso é RPA low-code na prática.
+
+---
+
+## Utilidades prontas (+50 funções)
+
+Além do navegador e das planilhas, o motor ganhou módulos para o dia a dia do
+robô. Tudo em português, com log automático e sem dependência nova:
+
+| Módulo | Arquivo | O que resolve |
+|---|---|---|
+| `texto` | `core/rpa/texto.py` | limpar, normalizar, slug, extrair e-mails/URLs/números, regex, similaridade |
+| `validacao` | `core/rpa/validacao.py` | CPF/CNPJ (validar, formatar, gerar), CEP, telefone, e-mail, datas úteis e moeda BR |
+| `banco` | `core/rpa/banco.py` | SQLite: conectar, consultar, inserir/atualizar/apagar, DataFrame, importar/exportar CSV |
+| `seguranca` | `core/rpa/seguranca.py` | senha/token, SHA-256, Base64, Fernet (criptografia), máscara e comparação segura |
+| `sistema` | `core/rpa/sistema.py` | executar comandos, abrir pastas/arquivos, esperar arquivo, variáveis de ambiente e notificação desktop |
+| `notificacoes` | `core/rpa/notificacoes.py` | webhooks para Slack, Teams, Discord, Telegram e webhook genérico |
+| `arquivo` | `core/rpa/arquivo.py` | + JSON/INI, hash, comparar, últimas linhas, juntar/dividir e tamanho |
+| `dados` | `core/rpa/dados.py` | + renomear, deduplicar, preencher, ordenar, pivotar, melt, Markdown e percentual |
+| `api` | `core/rpa/api.py` | + PATCH/HEAD, upload multipart e download para arquivo |
+| `email` | `core/rpa/email.py` | + HTML, CC/BCC, Reply-To e teste de SMTP |
+| `Navegador` | `core/rpa/browser.py` | + texto/HTML da página, tabelas, cookies, abas, alertas, JS e captura de elemento |
+| `tracktab` | `core/rpa/tracktab.py` | + buscar/obter seletor, listar, CSV, resumo e combinar exports |
+
+```python
+from core.rpa import banco, notificacoes, seguranca, texto, validacao
+
+texto.slug("Relatório de Clientes 2026")        # 'relatorio-de-clientes-2026'
+validacao.validar_cpf("529.982.247-25")         # True
+seguranca.gerar_senha(20)                       # senha forte
+notificacoes.enviar_slack(webhook, "Robô terminou!")
+
+con = banco.conectar("data/input/dados.db")
+banco.consultar(con, "SELECT * FROM clientes WHERE uf = ?", ("SP",))
+```
+
+> A lista completa, com assinaturas e exemplos, está em
+> [`data/docs/CATALOGO_FUNCOES.md`](data/docs/CATALOGO_FUNCOES.md).
 
 ---
 
@@ -554,7 +595,8 @@ selectores sem ficar inspecionando o HTML no olho. Leia o export no robô:
 from core.rpa import tracktab
 
 elementos = tracktab.carregar("data/input/tracktab_exemplo.json")
-seletores = tracktab.seletores("relativo")   # {"nome": "//div[@id='...']", ...}
+seletores = tracktab.seletores("data/input/tracktab_exemplo.json", "relativo")
+# {"nome": "//div[@id='...']", ...}
 ```
 
 Enquanto não estiver na Chrome Web Store, carregue a pasta `tracktab/` em

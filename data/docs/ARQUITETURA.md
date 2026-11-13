@@ -47,7 +47,7 @@ python app/main.py
    │
    ├─ configura o logger colorido
    ├─ interpreta argumentos (--web, --dados, ou todos)
-   ├─ cria Robo(nome="rpa-template")
+   ├─ cria Robo(nome="capivara")
    │    └─ cria Navegador()   (headless se AMBIENTE=prod)
    ├─ para cada fluxo registrado:
    │    └─ robo.executar_fluxo(nome, funcao)

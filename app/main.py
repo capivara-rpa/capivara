@@ -33,8 +33,8 @@ FLUXOS = {
 
 def principal() -> int:
     # 1. Configurar logging colorido
-    configurar_logger(nome_processo="rpa-template")
-    log_titulo("Template RPA Brasil")
+    configurar_logger(nome_processo="capivara")
+    log_titulo("Capivara 🦫 — Deixa que a Capivara faz.")
 
     # 2. Interpretar argumentos: --web / --dados / (padrão = todos)
     permitidos = [arg.lower().lstrip("-") for arg in sys.argv[1:]]
