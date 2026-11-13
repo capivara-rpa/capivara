@@ -7,12 +7,13 @@ máquinas, catálogo de processos, criação e despacho de jobs.
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import datetime, timedelta
 from typing import Any
 
 from loguru import logger
 
-from core.control_room import cofre, feriados as feriados_br, seguranca
+from core.control_room import banco, cofre, feriados as feriados_br, seguranca
 from core.control_room.banco import (
     ITEM_ABANDONADO,
     ITEM_CONCLUIDO,
@@ -134,23 +135,35 @@ def registrar_maquina(
     info: str | None = None,
 ) -> dict[str, Any]:
     """Registra (ou atualiza) uma máquina e marca como online."""
-    momento = agora_iso()
     with conectar() as conexao:
-        conexao.execute(
-            """
-            INSERT INTO maquinas (nome, status, tags, ip, info, ultima_atividade, criado_em)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (nome) DO UPDATE SET
-                status = excluded.status,
-                tags = COALESCE(excluded.tags, maquinas.tags),
-                ip = COALESCE(excluded.ip, maquinas.ip),
-                info = COALESCE(excluded.info, maquinas.info),
-                ultima_atividade = excluded.ultima_atividade
-            """,
-            (nome, MAQUINA_ONLINE, tags, ip, info, momento, momento),
-        )
+        maquina = _registrar_maquina(conexao, nome, tags, ip, info)
     logger.debug(f"[control-room] máquina '{nome}' registrada")
-    return obter_maquina_por_nome(nome) or {}
+    return maquina
+
+
+def _registrar_maquina(
+    conexao: sqlite3.Connection,
+    nome: str,
+    tags: str | None = None,
+    ip: str | None = None,
+    info: str | None = None,
+) -> dict[str, Any]:
+    momento = agora_iso()
+    linha = conexao.execute(
+        """
+        INSERT INTO maquinas (nome, status, tags, ip, info, ultima_atividade, criado_em)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (nome) DO UPDATE SET
+            status = excluded.status,
+            tags = COALESCE(excluded.tags, maquinas.tags),
+            ip = COALESCE(excluded.ip, maquinas.ip),
+            info = COALESCE(excluded.info, maquinas.info),
+            ultima_atividade = excluded.ultima_atividade
+        RETURNING *
+        """,
+        (nome, MAQUINA_ONLINE, tags, ip, info, momento, momento),
+    ).fetchone()
+    return dict(linha)
 
 
 def heartbeat(nome: str) -> dict[str, Any] | None:
@@ -165,10 +178,16 @@ def heartbeat(nome: str) -> dict[str, Any] | None:
 
 def _definir_status_maquina(maquina_id: int, status: str) -> None:
     with conectar() as conexao:
-        conexao.execute(
-            "UPDATE maquinas SET status = ?, ultima_atividade = ? WHERE id = ?",
-            (status, agora_iso(), maquina_id),
-        )
+        _atualizar_status_maquina(conexao, maquina_id, status)
+
+
+def _atualizar_status_maquina(
+    conexao: sqlite3.Connection, maquina_id: int, status: str
+) -> None:
+    conexao.execute(
+        "UPDATE maquinas SET status = ?, ultima_atividade = ? WHERE id = ?",
+        (status, agora_iso(), maquina_id),
+    )
 
 
 def listar_maquinas() -> list[dict[str, Any]]:
@@ -328,18 +347,29 @@ def criar_job(
     - ``maquina_id``: direciona o job para uma máquina específica.
     - ``requisito_tag``: exige que a máquina que pegar o job tenha essa tag (pool).
     """
-    tag = requisito_tag.strip() if isinstance(requisito_tag, str) and requisito_tag.strip() else None
     with conectar() as conexao:
-        cursor = conexao.execute(
-            """
-            INSERT INTO jobs (processo_id, maquina_id, requisito_tag, status, mensagem, criado_em)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (processo_id, maquina_id, tag, JOB_PENDENTE, mensagem, agora_iso()),
-        )
-        job_id = int(cursor.lastrowid or 0)
-    logger.info(f"[control-room] job #{job_id} criado para o processo {processo_id}")
-    return obter_job(job_id) or {}
+        job = _criar_job(conexao, processo_id, maquina_id, requisito_tag, mensagem)
+    logger.info(f"[control-room] job #{job['id']} criado para o processo {processo_id}")
+    return job
+
+
+def _criar_job(
+    conexao: sqlite3.Connection,
+    processo_id: int,
+    maquina_id: int | None = None,
+    requisito_tag: str | None = None,
+    mensagem: str | None = None,
+) -> dict[str, Any]:
+    tag = requisito_tag.strip() if isinstance(requisito_tag, str) and requisito_tag.strip() else None
+    cursor = conexao.execute(
+        """
+        INSERT INTO jobs (processo_id, maquina_id, requisito_tag, status, mensagem, criado_em)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (processo_id, maquina_id, tag, JOB_PENDENTE, mensagem, agora_iso()),
+    )
+    job_id = int(cursor.lastrowid or 0)
+    return banco._linha(conexao, banco._SQL_JOB_DETALHE + " WHERE j.id = ?", (job_id,)) or {}
 
 
 def cancelar_job(job_id: int) -> dict[str, Any] | None:
@@ -1378,49 +1408,61 @@ def obter_item_detalhe(item_id: int) -> dict[str, Any] | None:
 
 def reservar_item(nome_fila: str, nome_maquina: str) -> dict[str, Any] | None:
     """Reivindica o próximo item ``novo`` da fila para uma máquina (claim atômico)."""
-    fila = obter_fila_por_nome(nome_fila)
+    with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+        item = _reservar_item(conexao, nome_fila, nome_maquina)
+    if item:
+        logger.info(f"[control-room] item #{item['id']} reservado para '{nome_maquina}'")
+    return item
+
+
+def _reservar_item(
+    conexao: sqlite3.Connection, nome_fila: str, nome_maquina: str
+) -> dict[str, Any] | None:
+    fila = banco._linha(conexao, "SELECT * FROM filas WHERE nome = ?", (nome_fila,))
     if fila and not fila.get("ativo", 1):
         logger.info(f"[control-room] fila '{nome_fila}' está desativada")
         return None
-    maquina = registrar_maquina(nome_maquina) if fila else None
+    maquina = _registrar_maquina(conexao, nome_maquina) if fila else None
     if not fila or not maquina:
         return None
 
-    with conectar() as conexao:
-        linha = conexao.execute(
-            """
-            UPDATE itens_fila
-               SET status = ?, tentativas = tentativas + 1,
-                   maquina_id = ?, atualizado_em = ?
-             WHERE id = (
-                 SELECT id FROM itens_fila
-                  WHERE fila_id = ? AND status = ?
-                  ORDER BY prioridade DESC, id
-                  LIMIT 1
-             )
-            RETURNING id
-            """,
-            (ITEM_EM_PROCESSAMENTO, maquina["id"], agora_iso(), fila["id"], ITEM_NOVO),
-        ).fetchone()
+    linha = conexao.execute(
+        """
+        UPDATE itens_fila
+           SET status = ?, tentativas = tentativas + 1,
+               maquina_id = ?, atualizado_em = ?
+         WHERE id = (
+             SELECT id FROM itens_fila
+              WHERE fila_id = ? AND status = ?
+              ORDER BY prioridade DESC, id
+              LIMIT 1
+         )
+        RETURNING id
+        """,
+        (ITEM_EM_PROCESSAMENTO, maquina["id"], agora_iso(), fila["id"], ITEM_NOVO),
+    ).fetchone()
 
     if linha is None:
         return None
 
-    _definir_status_maquina(maquina["id"], MAQUINA_OCUPADA)
-    item = obter_item(int(linha["id"]))
-    if item:
-        logger.info(f"[control-room] item #{item['id']} reservado para '{nome_maquina}'")
+    _atualizar_status_maquina(conexao, maquina["id"], MAQUINA_OCUPADA)
+    item = banco._linha(
+        conexao, banco._SQL_ITEM_DETALHE + " WHERE i.id = ?", (int(linha["id"]),)
+    )
     return _carregar_dados(item) if item else None
 
 
-def _executores_da_fila(fila: dict[str, Any]) -> list[int]:
+def _executores_da_fila(conexao: sqlite3.Connection, fila: dict[str, Any]) -> list[int]:
     """Lista os processos executores da fila (principal + extras), sem repetir."""
     ids: list[int] = []
     principal = fila.get("processo_id")
     if principal is not None:
         ids.append(int(principal))
-    for processo in listar_processos_fila(fila["id"]):
-        pid = processo.get("processo_id")
+    for processo in conexao.execute(
+        "SELECT processo_id FROM fila_processos WHERE fila_id = ? ORDER BY id", (fila["id"],)
+    ):
+        pid = processo["processo_id"]
         if pid is not None and int(pid) not in ids:
             ids.append(int(pid))
     return ids
@@ -1431,34 +1473,40 @@ def reservar_item_e_job(nome_fila: str, nome_maquina: str) -> dict[str, Any]:
 
     Se a fila tiver mais de um executor, eles são distribuídos em **round-robin**
     (o ponteiro ``filas.rr`` é avançado a cada item reservado).
-    """
-    item = reservar_item(nome_fila, nome_maquina)
-    if item is None:
-        return {"item": None, "job": None}
 
-    fila = obter_fila_por_nome(nome_fila)
+    A reserva, o job e seus vínculos são persistidos na mesma transação.
+    Filas sem executores continuam reservando o item sem criar um job.
+    """
     job: dict[str, Any] | None = None
-    if fila:
-        executores = _executores_da_fila(fila)
+    with conectar() as conexao:
+        # Serializa consumidores antes de ler a fila e selecionar o executor.
+        # O contexto da conexão faz rollback se qualquer operação falhar.
+        conexao.execute("BEGIN IMMEDIATE")
+        item = _reservar_item(conexao, nome_fila, nome_maquina)
+        if item is None:
+            return {"item": None, "job": None}
+
+        fila = banco._linha(conexao, "SELECT * FROM filas WHERE id = ?", (item["fila_id"],))
+        executores = _executores_da_fila(conexao, fila)
         if executores:
-            with conectar() as conexao:
-                linha = conexao.execute(
-                    "UPDATE filas SET rr = rr + 1 WHERE id = ? RETURNING rr", (fila["id"],)
-                ).fetchone()
+            linha = conexao.execute(
+                "UPDATE filas SET rr = rr + 1 WHERE id = ? RETURNING rr", (fila["id"],)
+            ).fetchone()
             indice = (int(linha["rr"]) - 1) % len(executores) if linha else 0
             processo_id = executores[indice]
-            job = criar_job(
+            job = _criar_job(
+                conexao,
                 processo_id,
                 maquina_id=item["maquina_id"],
                 mensagem=f"item #{item['id']} da fila '{nome_fila}'",
             )
-            with conectar() as conexao:
-                conexao.execute("UPDATE jobs SET item_id = ? WHERE id = ?", (item["id"], job["id"]))
-                conexao.execute(
-                    "UPDATE itens_fila SET job_id = ? WHERE id = ?", (job["id"], item["id"])
-                )
+            conexao.execute("UPDATE jobs SET item_id = ? WHERE id = ?", (item["id"], job["id"]))
+            conexao.execute(
+                "UPDATE itens_fila SET job_id = ? WHERE id = ?", (job["id"], item["id"])
+            )
             item["job_id"] = job["id"]
-            job = obter_job(job["id"]) or job
+            job["item_id"] = item["id"]
+    logger.info(f"[control-room] item #{item['id']} reservado para '{nome_maquina}'")
     return {"item": item, "job": job}
 
 
