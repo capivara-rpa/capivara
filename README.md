@@ -21,6 +21,11 @@ viraram **funções em português** e todo o processo aparece **colorido no term
 🧰 Útil:  validar_cpf(...) · gerar_senha(...) · notificacoes.enviar_slack(...)
 ```
 
+> **Comunidade:** sugestões, RFCs e exemplos ficam em
+> [`capivara-rpa/capivara-community`](https://github.com/capivara-rpa/capivara-community).
+> A `main` deste repositório é a versão **estável**; a branch `next` recebe as
+> propostas aceitas antes do próximo release.
+
 ---
 
 ## 📖 Índice
