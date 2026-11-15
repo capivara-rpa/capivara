@@ -690,7 +690,8 @@ ruff check app core settings tests
 - 🏗️ **[Arquitetura](data/docs/ARQUITETURA.md)** — como os módulos se relacionam e como estender
 - 🌐 **[Rede, token, TLS e VPN](data/docs/REDE.md)** — rodar agentes em outras máquinas com segurança
 - 📦 **[Instaladores](packaging/README.md)** — Control Room/agente sem Python (macOS e Windows) e a extensão TrackTab
+- 🤝 **[Como contribuir](CONTRIBUTING.md)** — ambiente de dev, padrões, commits e pull requests
 
 ---
 
-Feito com ❤️ para a comunidade **Python Brasil**. Contribuições são bem-vindas!
+Feito com ❤️ para a comunidade **Python Brasil**. Contribuições são bem-vindas! Veja o [guia de contribuição](CONTRIBUTING.md).
