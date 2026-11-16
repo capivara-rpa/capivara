@@ -152,13 +152,15 @@ cp .env.example .env
 
 > 💡 **Windows**: use `py -m venv .venv` se `python` não existir no PATH.
 
-### Usar como biblioteca (em preparação)
+### Usar como biblioteca (PyPI)
 
-A distribuição pública será **`capivara-rpa`** (import `capivara_rpa`, CLI
-`capivara`). Enquanto o alpha não está no PyPI, instale do fonte:
+A distribuição pública é **`capivara-rpa`** (import `capivara_rpa`, CLI
+`capivara`):
 
 ```bash
-pip install -e ".[all]"
+pip install capivara-rpa              # base: texto, validação, API, arquivos...
+pip install "capivara-rpa[web]"       # + Selenium/Navegador
+pip install "capivara-rpa[all]"       # kit completo (web + dados + cofre + filas)
 ```
 
 ```python
@@ -166,6 +168,17 @@ from capivara_rpa import texto, validacao
 
 texto.slug("Relatório de Clientes 2026")   # 'relatorio-de-clientes-2026'
 validacao.validar_cpf("529.982.247-25")    # True
+```
+
+Para automação web:
+
+```python
+from capivara_rpa import Navegador
+
+with Navegador() as navegador:
+    navegador.abrir_url("https://exemplo.com.br")
+    navegador.escrever_texto("#busca", "Capivara")
+    navegador.clicar_elemento("button[type=submit]")
 ```
 
 Instale só o que precisar com os extras: `web` (Selenium), `dados` (pandas),

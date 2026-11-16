@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "capivara-rpa"
-version = "1.2.0a1"
+version = "1.2.0"
 description = "Capivara — biblioteca e plataforma de RPA em Python, 100% em português"
 readme = "README.md"
 requires-python = ">=3.11"
