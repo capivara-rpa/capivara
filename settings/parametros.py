@@ -36,7 +36,11 @@ def _como_int(valor: str | None, padrao: int) -> int:
 # ----------------------------------------------------------------------
 # Caminhos do projeto
 # ----------------------------------------------------------------------
-RAIZ_PROJETO = Path(__file__).resolve().parents[1]
+_RAIZ_ARQUIVO = Path(__file__).resolve().parents[1]
+# Instalada via pip, a lib fica em site-packages; nesse caso os dados do
+# usuário devem ficar no diretório atual, não dentro do site-packages.
+_INSTALADO = any(parte in {"site-packages", "dist-packages"} for parte in _RAIZ_ARQUIVO.parts)
+RAIZ_PROJETO = Path.cwd() if _INSTALADO else _RAIZ_ARQUIVO
 
 # Em binários instalados, os dados (bancos, logs, vault) vão para RPA_PASTA_DADOS
 # para não se perderem a cada execução extraída no _MEIPASS.
@@ -46,8 +50,16 @@ PASTA_INPUT = PASTA_DATA / "input"
 PASTA_OUTPUT = PASTA_DATA / "output"
 PASTA_LOGS = PASTA_DATA / "logs"
 
-for _pasta in (PASTA_INPUT, PASTA_OUTPUT, PASTA_LOGS):
-    _pasta.mkdir(parents=True, exist_ok=True)
+
+def garantir_pastas() -> None:
+    """Cria as pastas de dados sob demanda.
+
+    Importar ``settings.parametros`` não deve criar ``data/``: a biblioteca
+    pública pode ser usada só com funções puras. Quem executa o app, o logger
+    ou um painel chama esta função quando precisa gravar algo.
+    """
+    for pasta in (PASTA_INPUT, PASTA_OUTPUT, PASTA_LOGS):
+        pasta.mkdir(parents=True, exist_ok=True)
 
 # ----------------------------------------------------------------------
 # Ambiente de execução
