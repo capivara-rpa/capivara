@@ -17,7 +17,7 @@ from typing import Any
 
 from core.rpa import __all__ as _ALL_RPA
 
-__version__ = "1.1.0"
+__version__ = "1.2.0a1"
 
 __all__ = [
     *_ALL_RPA,

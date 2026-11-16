@@ -14,7 +14,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 
 
 def test_versao_e_all_publico():
-    assert capivara_rpa.__version__ == "1.1.0"
+    assert capivara_rpa.__version__ == "1.2.0a1"
     assert "texto" in capivara_rpa.__all__
     assert "validacao" in capivara_rpa.__all__
     assert "Navegador" in capivara_rpa.__all__
@@ -70,4 +70,4 @@ def test_cli_version_por_modulo():
         check=False,
     )
     assert resultado.returncode == 0
-    assert "capivara 1.1.0" in resultado.stdout
+    assert "capivara 1.2.0a1" in resultado.stdout
