@@ -77,6 +77,7 @@ capivara/
 ├── app/                    # 🔌 Componentes da aplicação (o SEU robô)
 │   ├── main.py             #    Ponto de entrada / orquestrador
 │   └── fluxos/             #    Cada tarefa de negócio em um arquivo
+├── capivara_rpa/           # 📚 Fachada pública da biblioteca (pip install capivara-rpa)
 ├── core/                   # ⚙️ Motor low-code reutilizável
 │   ├── rpa/                #    browser · dados · arquivo · api · email · banco
 │   │                       #    texto · validacao · seguranca · sistema · notificacoes
@@ -150,6 +151,40 @@ cp .env.example .env
 ```
 
 > 💡 **Windows**: use `py -m venv .venv` se `python` não existir no PATH.
+
+### Usar como biblioteca (PyPI)
+
+A distribuição pública é **`capivara-rpa`** (import `capivara_rpa`, CLI
+`capivara`):
+
+```bash
+pip install capivara-rpa              # base: texto, validação, API, arquivos...
+pip install "capivara-rpa[web]"       # + Selenium/Navegador
+pip install "capivara-rpa[all]"       # kit completo (web + dados + cofre + filas)
+```
+
+```python
+from capivara_rpa import texto, validacao
+
+texto.slug("Relatório de Clientes 2026")   # 'relatorio-de-clientes-2026'
+validacao.validar_cpf("529.982.247-25")    # True
+```
+
+Para automação web:
+
+```python
+from capivara_rpa import Navegador
+
+with Navegador() as navegador:
+    navegador.abrir_url("https://exemplo.com.br")
+    navegador.escrever_texto("#busca", "Capivara")
+    navegador.clicar_elemento("button[type=submit]")
+```
+
+Instale só o que precisar com os extras: `web` (Selenium), `dados` (pandas),
+`cofre` (criptografia), `pacotes` (zip com senha), `interacao` (pyperclip),
+`control-room`, `all` ou `keyring`. O import da raiz é lazy: quem usa apenas
+`texto`/`validacao` não carrega Selenium nem pandas.
 
 ---
 

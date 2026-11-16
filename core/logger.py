@@ -13,7 +13,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from settings.parametros import NIVEL_LOG, NOME_LOG, PASTA_LOGS
+from settings.parametros import NIVEL_LOG, NOME_LOG, PASTA_LOGS, garantir_pastas
 
 # Formato do console: hora + nível colorido + mensagem
 _FORMATO_CONSOLE = (
@@ -67,6 +67,8 @@ def configurar_logger(nome_processo: str = "rpa") -> None:
 
     if _CONFIGURADO:
         return
+
+    garantir_pastas()
 
     # Remover o handler padrão para termos controle total no formato
     logger.remove()
