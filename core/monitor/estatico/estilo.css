@@ -193,7 +193,7 @@ h1, h2, h3, h4, h5, h6 {
     min-height: 100vh;
 }
 
-/* Quando embutido na Control Room (iframe), esconde a sidebar própria */
+/* Quando embutido na Lagoa (iframe), esconde a sidebar própria */
 body.embed .sidebar { display: none; }
 body.embed .conteudo { margin-left: 0; min-height: 0; }
 

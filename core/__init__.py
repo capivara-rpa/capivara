@@ -7,7 +7,7 @@ Composto por:
 - ``rpa``       -> motor low-code (web, dados, arquivos, API, e-mail e filas)
 
 Para não forçar o carregamento de dependências pesadas (Selenium/pandas)
-em binários que só servem a Control Room, os atalhos são carregados sob
+em binários que só servem a Lagoa, os atalhos são carregados sob
 demanda via ``__getattr__`` (PEP 562).
 """
 

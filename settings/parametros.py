@@ -122,17 +122,30 @@ HOST_MONITOR = os.getenv("HOST_MONITOR", "127.0.0.1").strip()
 ABRIR_PAINEL = _como_bool(os.getenv("ABRIR_PAINEL"), True)
 
 # ----------------------------------------------------------------------
-# Orquestrador / Control Room (core/control_room)
+# Orquestrador / Lagoa (core/control_room)
 # ----------------------------------------------------------------------
 # Banco com máquinas, processos e jobs (separado do trace do monitor)
 _caminho_orq = os.getenv("BANCO_ORQUESTRADOR", "").strip()
 BANCO_ORQUESTRADOR = Path(_caminho_orq) if _caminho_orq else PASTA_DATA / "orquestrador.db"
 
-# Porta da Control Room (serve também o painel de trace em /monitor/)
-PORTA_CONTROL_ROOM = _como_int(os.getenv("PORTA_CONTROL_ROOM"), 8765)
 
-# Host/interface da Control Room. Use 0.0.0.0 para aceitar runners da rede local.
-HOST_CONTROL_ROOM = os.getenv("HOST_CONTROL_ROOM", "127.0.0.1").strip()
+def _env(*nomes: str, padrao: str = "") -> str:
+    """Lê a primeira variável definida (nomes novos antes dos legados)."""
+    for nome in nomes:
+        valor = os.getenv(nome)
+        if valor is not None and valor.strip():
+            return valor.strip()
+    return padrao
+
+
+# Porta da Lagoa (serve também o painel de trace em /monitor/).
+# LAGOA_* é o nome novo; CONTROL_ROOM_* continua aceito por compatibilidade.
+PORTA_LAGOA = _como_int(_env("PORTA_LAGOA", "PORTA_CONTROL_ROOM"), 8765)
+PORTA_CONTROL_ROOM = PORTA_LAGOA
+
+# Host/interface da Lagoa. Use 0.0.0.0 para aceitar runners da rede local.
+HOST_LAGOA = _env("HOST_LAGOA", "HOST_CONTROL_ROOM", padrao="127.0.0.1")
+HOST_CONTROL_ROOM = HOST_LAGOA
 
 # Segundos sem heartbeat até considerar uma máquina "offline"
 SEGUNDOS_OFFLINE = _como_int(os.getenv("SEGUNDOS_OFFLINE"), 20)
@@ -140,23 +153,26 @@ SEGUNDOS_OFFLINE = _como_int(os.getenv("SEGUNDOS_OFFLINE"), 20)
 # Intervalo (segundos) da verificação de agendamentos (triggers)
 INTERVALO_TRIGGERS = _como_int(os.getenv("INTERVALO_TRIGGERS"), 15)
 
-# URL da Control Room usada pelos robôs/CLI para consumir vault e filas
-CONTROL_ROOM_URL = os.getenv("CONTROL_ROOM_URL", "http://127.0.0.1:8765").rstrip("/")
+# URL da Lagoa usada pelos robôs/CLI para consumir vault e filas
+LAGOA_URL = _env("LAGOA_URL", "CONTROL_ROOM_URL", padrao="http://127.0.0.1:8765").rstrip("/")
+CONTROL_ROOM_URL = LAGOA_URL
 
-# Token que os agentes enviam à Control Room (cabeçalho Authorization: Bearer).
-# Vazio = Control Room aberta (ideal para dev/rede local). Defina para expor a
-# Control Room fora da rede confiável (VPN/hosted): todos os agentes precisam do
+# Token que os agentes enviam à Lagoa (cabeçalho Authorization: Bearer).
+# Vazio = Lagoa aberta (ideal para dev/rede local). Defina para expor a
+# Lagoa fora da rede confiável (VPN/hosted): todos os agentes precisam do
 # mesmo token.
-CONTROL_ROOM_TOKEN = os.getenv("CONTROL_ROOM_TOKEN", "").strip()
+LAGOA_TOKEN = _env("LAGOA_TOKEN", "CONTROL_ROOM_TOKEN", padrao="")
+CONTROL_ROOM_TOKEN = LAGOA_TOKEN
 
-# Login/RBAC da Control Room (interface web). O primeiro admin é criado na
+# Login/RBAC da Lagoa (interface web). O primeiro admin é criado na
 # primeira subida com estas credenciais (troque a senha depois!).
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@rpa.local").strip()
 ADMIN_SENHA = os.getenv("ADMIN_SENHA", "admin")
 
 # Exigir login (sessão) para as ações do painel? Desligado por padrão para não
 # atrapalhar o uso local/dev. Ligue em ambientes compartilhados/rede.
-CONTROL_ROOM_AUTH = _como_bool(os.getenv("CONTROL_ROOM_AUTH"), False)
+LAGOA_AUTH = _como_bool(_env("LAGOA_AUTH", "CONTROL_ROOM_AUTH", padrao="false"), False)
+CONTROL_ROOM_AUTH = LAGOA_AUTH
 
 # Horas de validade de uma sessão de usuário
 SESSAO_HORAS = _como_int(os.getenv("SESSAO_HORAS"), 12)
@@ -167,7 +183,7 @@ RETENCAO_AUDITORIA_DIAS = _como_int(os.getenv("RETENCAO_AUDITORIA_DIAS"), 90)
 # SLA de execução: acima disso um job é "excedido" (e 75% disso = "lento")
 LIMITE_JOB_SEGUNDOS = _como_int(os.getenv("LIMITE_JOB_SEGUNDOS"), 300)
 
-# TLS (HTTPS) opcional para expor a Control Room/monitor fora da rede local.
+# TLS (HTTPS) opcional para expor a Lagoa/monitor fora da rede local.
 # Informe o certificado e a chave em PEM. Vazio = HTTP puro (dev/rede local).
 TLS_CERT = os.getenv("TLS_CERT", "").strip()
 TLS_CHAVE = os.getenv("TLS_CHAVE", "").strip()
@@ -191,7 +207,7 @@ VAULT_ARQUIVO_CHAVE = PASTA_DATA / "vault.key"
 VAULT_USAR_KEYRING = _como_bool(os.getenv("VAULT_USAR_KEYRING"), False)
 
 # ----------------------------------------------------------------------
-# Pacotes de robôs (.zip) enviados para a Control Room
+# Pacotes de robôs (.zip) enviados para a Lagoa
 # ----------------------------------------------------------------------
 # Pasta onde os pacotes enviados são extraídos e registrados automaticamente
 # Pasta onde os robôs empacotados (.zip) são instalados

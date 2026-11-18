@@ -21,7 +21,7 @@ import pytest  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def bancos_limpos():
-    """Inicializa e limpa os bancos do monitor e do control room a cada teste."""
+    """Inicializa e limpa os bancos do monitor e da Lagoa a cada teste."""
     from core.control_room import banco as banco_orq
     from core.monitor import banco as banco_mon
 

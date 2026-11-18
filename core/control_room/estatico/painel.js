@@ -1,7 +1,7 @@
 "use strict";
 
 // ============================================================
-//  Control Room · orquestrador de robôs
+//  Lagoa · orquestrador de robôs
 // ============================================================
 const INTERVALO_MS = 2000;
 
@@ -575,7 +575,7 @@ function renderTrace(passos) {
 
 // ---------- abas ----------
 const TITULOS = {
-    jobs: ["Control Room", "Orquestrador de robôs · máquinas, processos e jobs"],
+    jobs: ["Lagoa", "Onde a mágica das capivaras acontece"],
     dispositivos: ["Dispositivos", "Máquinas registradas · estado, tags e tokens"],
     agendamentos: ["Agendamentos", "Disparos automáticos por intervalo, horário ou cron"],
     automacoes: ["Automações", "Publique e gerencie robôs (.zip com rpa.json)"],

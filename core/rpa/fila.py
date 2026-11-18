@@ -1,7 +1,7 @@
 """Filas de processamento (datapool) consumidas pelos robôs.
 
-Você cria itens a processar na Control Room e os robôs (agentes com ``--fila``)
-reivindicam e processam um por um — algo próximo das *queues* do UiPath::
+Você cria itens a processar na Lagoa e os robôs (agentes com ``--fila``)
+reivindicam e processam um por um — algo próximo das *filas* de RPA::
 
     from core.rpa import fila
 
@@ -20,20 +20,20 @@ from typing import Any
 import requests
 from loguru import logger
 
-from settings.parametros import CONTROL_ROOM_TOKEN, CONTROL_ROOM_URL
+from settings.parametros import LAGOA_TOKEN, LAGOA_URL
 
 
 def _base(control_room: str | None) -> str:
-    return (control_room or CONTROL_ROOM_URL).rstrip("/")
+    return (control_room or LAGOA_URL).rstrip("/")
 
 
 def _cabecalhos() -> dict[str, str]:
     """Token do agente, quando configurado (Authorization: Bearer)."""
-    return {"Authorization": f"Bearer {CONTROL_ROOM_TOKEN}"} if CONTROL_ROOM_TOKEN else {}
+    return {"Authorization": f"Bearer {LAGOA_TOKEN}"} if LAGOA_TOKEN else {}
 
 
 class Fila:
-    """Cliente de uma fila da Control Room."""
+    """Cliente de uma fila da Lagoa."""
 
     def __init__(self, nome: str, control_room: str | None = None) -> None:
         self.nome = nome

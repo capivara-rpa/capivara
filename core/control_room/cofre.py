@@ -1,4 +1,4 @@
-"""Cofre de credenciais (vault) da Control Room.
+"""Cofre de credenciais (vault) da Lagoa.
 
 Cifra os segredos antes de gravá-los no banco e os decifra sob demanda. A chave
 vem de ``VAULT_CHAVE`` (``.env``) — uma frase-senha qualquer — ou, na ausência

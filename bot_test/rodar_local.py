@@ -1,4 +1,4 @@
-"""Roda uma automação de teste localmente (sem Control Room).
+"""Roda uma automação de teste localmente (sem Lagoa).
 
 Útil para ver os logs no terminal e a trace no painel de monitoramento::
 

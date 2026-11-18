@@ -1,7 +1,7 @@
 @echo off
-rem Sobe a Control Room (orquestrador + painel de trace) - Windows
-rem   scripts\control_room.bat              -> sobe a Control Room
-rem   scripts\control_room.bat --exemplos   -> popula os exemplos e sobe
+rem Sobe a Lagoa (orquestrador + painel de trace) - Windows
+rem   scripts\lagoa.bat              -> sobe a Lagoa
+rem   scripts\lagoa.bat --exemplos   -> popula os exemplos e sobe
 
 setlocal
 set ROOT=%~dp0..

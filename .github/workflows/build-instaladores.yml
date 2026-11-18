@@ -1,6 +1,6 @@
 name: build-instaladores
 
-# Compila os binários/instaladores da Control Room, do Agente e da extensão TrackTab.
+# Compila os binários/instaladores da Lagoa, do Agente e da extensão TrackTab.
 # Em push para main: gera artefatos (debug).
 # Em tag v*.: anexa os binários ao release do GitHub.
 
@@ -29,8 +29,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      - name: Compilar Control Room
-        run: pyinstaller --noconfirm packaging/control_room.spec
+      - name: Compilar Lagoa
+        run: pyinstaller --noconfirm packaging/lagoa.spec
 
       - name: Compilar Agente
         run: pyinstaller --noconfirm packaging/agente.spec
@@ -60,11 +60,11 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force release | Out-Null
-          Copy-Item dist\control_room.exe release\ -Force
+          Copy-Item dist\lagoa.exe release\ -Force
           Copy-Item dist\robo_agente.exe release\ -Force
           Copy-Item dist\tracktab.zip release\ -Force
-          if (Test-Path dist\instalador\control_room_instalador.exe) {
-            Copy-Item dist\instalador\control_room_instalador.exe release\ -Force
+          if (Test-Path dist\instalador\lagoa_instalador.exe) {
+            Copy-Item dist\instalador\lagoa_instalador.exe release\ -Force
           }
           Get-ChildItem release\
 

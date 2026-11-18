@@ -1,4 +1,4 @@
-"""Registra as automações de teste no catálogo da Control Room.
+"""Registra as automações de teste no catálogo da Lagoa.
 
 Uso::
 
@@ -52,7 +52,7 @@ PROCESSOS = [
     },
     {
         "nome": "Teste — Consultar credencial",
-        "descricao": "Lê um asset do vault da Control Room.",
+        "descricao": "Lê um asset do vault da Lagoa.",
         "fluxo": "bot_test.automacoes:consultar_credencial",
         "usa_navegador": False,
     },

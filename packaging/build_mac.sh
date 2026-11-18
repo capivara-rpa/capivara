@@ -17,8 +17,8 @@ if [ -x "$ROOT/.venv/bin/python" ]; then
     PY="$ROOT/.venv/bin/python"
 fi
 
-echo "🔨 Compilando a Control Room..."
-"$PY" -m PyInstaller --noconfirm packaging/control_room.spec
+echo "🔨 Compilando a Lagoa..."
+"$PY" -m PyInstaller --noconfirm packaging/lagoa.spec
 
 echo "🔨 Compilando o Agente..."
 "$PY" -m PyInstaller --noconfirm packaging/agente.spec
@@ -28,12 +28,12 @@ echo "📦 Montando $BUNDLE ..."
 rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE"
 
-cp -f dist/control_room dist/robo_agente "$BUNDLE/"
+cp -f dist/lagoa dist/robo_agente "$BUNDLE/"
 rm -rf "$BUNDLE/tracktab"
 cp -Rf tracktab "$BUNDLE/tracktab"
 cp -f packaging/instalar_mac.sh "$BUNDLE/"
 cp -f .env.example "$BUNDLE/.env.example"
-chmod +x "$BUNDLE/control_room" "$BUNDLE/robo_agente" "$BUNDLE/instalar_mac.sh"
+chmod +x "$BUNDLE/lagoa" "$BUNDLE/robo_agente" "$BUNDLE/instalar_mac.sh"
 
 echo "🗜️  Empacotando zip..."
 ( cd dist && rm -f RPA-Brasil-macos.zip && zip -r -X RPA-Brasil-macos.zip RPA-Brasil >/dev/null )

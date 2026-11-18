@@ -1,4 +1,4 @@
-"""Feriados nacionais brasileiros (para os agendamentos da Control Room).
+"""Feriados nacionais brasileiros (para os agendamentos da Lagoa).
 
 Calcula os feriados **nacionais** de um ano sem dependências externas:
 

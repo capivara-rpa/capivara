@@ -1,6 +1,6 @@
 """Cofre de credenciais (vault) consumido pelos robôs.
 
-Os segredos ficam centralizados e **cifrados** na Control Room. Este módulo é o
+Os segredos ficam centralizados e **cifrados** na Lagoa. Este módulo é o
 cliente usado dentro dos fluxos para buscar credenciais sem deixá-las no código
 nem no ``.env``::
 
@@ -12,7 +12,7 @@ nem no ``.env``::
     # ou, lendo um par de credenciais de uma vez:
     usuario, senha = vault.credencial("portal_usuario", "portal_senha")
 
-A URL da Control Room vem de ``CONTROL_ROOM_URL`` (``.env``) e pode ser
+A URL da Lagoa vem de ``LAGOA_URL`` (``.env``) e pode ser
 sobrescrita passando ``control_room=...``.
 """
 
@@ -24,19 +24,19 @@ import requests
 from loguru import logger
 
 from core.tratador import ErroRPA
-from settings.parametros import CONTROL_ROOM_TOKEN, CONTROL_ROOM_URL
+from settings.parametros import LAGOA_TOKEN, LAGOA_URL
 
 
 def _cabecalhos() -> dict[str, str]:
     """Token do agente, quando configurado (Authorization: Bearer)."""
-    return {"Authorization": f"Bearer {CONTROL_ROOM_TOKEN}"} if CONTROL_ROOM_TOKEN else {}
+    return {"Authorization": f"Bearer {LAGOA_TOKEN}"} if LAGOA_TOKEN else {}
 
 
 class Cofre:
-    """Cliente HTTP do cofre de credenciais da Control Room."""
+    """Cliente HTTP do cofre de credenciais da Lagoa."""
 
     def __init__(self, control_room: str | None = None) -> None:
-        self.base = (control_room or CONTROL_ROOM_URL).rstrip("/")
+        self.base = (control_room or LAGOA_URL).rstrip("/")
 
     # ------------------------------------------------------------------
     def obter(
@@ -59,10 +59,10 @@ class Cofre:
                 params=params,
             )
         except requests.RequestException as erro:
-            raise ErroRPA(f"Control Room indisponível: {erro}") from erro
+            raise ErroRPA(f"Lagoa indisponível: {erro}") from erro
 
         if resposta.status_code == 404:
-            logger.warning(f"[vault] segredo '{nome}' não encontrado na Control Room")
+            logger.warning(f"[vault] segredo '{nome}' não encontrado na Lagoa")
             return None
         resposta.raise_for_status()
         return resposta.json().get("valor")
@@ -94,7 +94,7 @@ class Cofre:
                 params=params,
             )
         except requests.RequestException as erro:
-            raise ErroRPA(f"Control Room indisponível: {erro}") from erro
+            raise ErroRPA(f"Lagoa indisponível: {erro}") from erro
 
         if resposta.status_code == 404:
             logger.warning(f"[vault] credencial '{nome}' não encontrada (ou sem permissão)")
@@ -116,7 +116,7 @@ class Cofre:
         usuario: str | None = None,
         pasta: str | None = None,
     ) -> dict[str, Any]:
-        """Cria/atualiza um segredo na Control Room."""
+        """Cria/atualiza um segredo na Lagoa."""
         resposta = requests.post(
             f"{self.base}/api/orq/assets",
             json={
@@ -132,7 +132,7 @@ class Cofre:
             headers=_cabecalhos(),
         )
         resposta.raise_for_status()
-        logger.success(f"[vault] segredo '{nome}' gravado na Control Room")
+        logger.success(f"[vault] segredo '{nome}' gravado na Lagoa")
         return resposta.json()
 
     def rotacionar(self, nome: str, novo_valor: str) -> dict[str, Any] | None:
@@ -147,7 +147,7 @@ class Cofre:
             logger.warning(f"[vault] segredo '{nome}' não existe para rotacionar")
             return None
         resposta.raise_for_status()
-        logger.success(f"[vault] segredo '{nome}' rotacionado na Control Room")
+        logger.success(f"[vault] segredo '{nome}' rotacionado na Lagoa")
         return resposta.json().get("asset")
 
     def versoes(self, nome: str) -> list[dict[str, Any]]:

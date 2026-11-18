@@ -1,7 +1,7 @@
-"""Dados de exemplo (mock) para a Control Room.
+"""Dados de exemplo (mock) para a Lagoa.
 
 Cadastra algumas máquinas, o catálogo de processos e um histórico de jobs
-(pendentes, concluídos e com falha) — assim dá para ver a Control Room cheia
+(pendentes, concluídos e com falha) — assim dá para ver a Lagoa cheia
 e testar o despacho com um agente de verdade.
 
 Uso::
@@ -53,7 +53,7 @@ def _job_historico(
 
 
 def popular(reimprimir: bool = True) -> None:
-    """Recria a Control Room com máquinas, processos e jobs de exemplo."""
+    """Recria a Lagoa com máquinas, processos e jobs de exemplo."""
     iniciar_banco()
     apagar_tudo()
     servico.garantir_processos_exemplo()
@@ -107,7 +107,7 @@ def popular(reimprimir: bool = True) -> None:
 
     if reimprimir:
         logger.success(
-            "Control Room populada: 3 máquinas, 2 processos, 6 jobs, "
+            "Lagoa populada: 3 máquinas, 2 processos, 6 jobs, "
             "2 agendamentos, 2 assets e 1 fila com 4 itens."
         )
 

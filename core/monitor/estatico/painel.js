@@ -50,7 +50,7 @@ function temaInicial() {
 if (el.btnTema) el.btnTema.addEventListener("click", alternarTema);
 temaInicial();
 
-// Quando embutido na Control Room (iframe), esconde a sidebar própria.
+// Quando embutido na Lagoa (iframe), esconde a sidebar própria.
 if (new URLSearchParams(location.search).has("embed")) {
     document.body.classList.add("embed");
 }

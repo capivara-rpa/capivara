@@ -1,7 +1,7 @@
-# Instaladores (Control Room + Agente + TrackTab)
+# Instaladores (Lagoa + Agente + TrackTab)
 
 Os binários são gerados com **PyInstaller** e empacotados como instaladores de
-desktop — assim dá para subir a Control Room e um agente **sem Python** na
+desktop — assim dá para subir a Lagoa e um agente **sem Python** na
 máquina de destino. Os scripts abaixo montam o pacote completo.
 
 > Requisitos (só na máquina que builda): `python -m venv .venv` + as deps do
@@ -14,7 +14,7 @@ máquina de destino. Os scripts abaixo montam o pacote completo.
 | macOS (pasta/zip) | `bash packaging/build_mac.sh` | `dist/RPA-Brasil/` + `dist/RPA-Brasil-macos.zip` |
 | macOS (.dmg) | `bash packaging/build_dmg.sh` | `dist/RPA-Brasil-macos.dmg` |
 | TrackTab | `bash packaging/build_tracktab.sh` | `dist/tracktab.zip` (Chrome Web Store) |
-| Windows | (ver abaixo) `iscc packaging/inno_setup.iss` | `dist/instalador/control_room_instalador.exe` |
+| Windows | (ver abaixo) `iscc packaging/inno_setup.iss` | `dist/instalador/lagoa_instalador.exe` |
 
 ### macOS — instalador .dmg (app de duplo-clique)
 
@@ -54,20 +54,20 @@ Monta `dist/RPA-Brasil/` com os binários, a extensão `tracktab/` e o
 ```
 
 O instalador copia os binários (sem Python), cria o `.env`/`data/`, instala a
-Control Room **e** o agente como serviços (`LaunchAgents`, sobem no login e
+Lagoa **e** o agente como serviços (`LaunchAgents`, sobem no login e
 reconectam) e remove a quarentena do Gatekeeper.
 
 ### Windows — Inno Setup
 
 1. Build os binários (num terminal Windows):
-   `pyinstaller --noconfirm packaging/control_room.spec` e
+   `pyinstaller --noconfirm packaging/lagoa.spec` e
    `pyinstaller --noconfirm packaging/agente.spec`.
 2. Instale o [Inno Setup 6+](https://jrsoftware.org/isinfo.php).
-3. `iscc packaging/inno_setup.iss` → `dist/instalador/control_room_instalador.exe`.
+3. `iscc packaging/inno_setup.iss` → `dist/instalador/lagoa_instalador.exe`.
 
-O instalador traz a Control Room, o Agente (com opção de **iniciar com o
+O instalador traz a Lagoa, o Agente (com opção de **iniciar com o
 Windows** via atalho na inicialização), a extensão TrackTab e os scripts
-`iniciar_control_room.cmd` / `iniciar_agente.cmd` (definem `RPA_PASTA_DADOS`
+`iniciar_lagoa.cmd` / `iniciar_agente.cmd` (definem `RPA_PASTA_DADOS`
 ao lado do app).
 
 ### TrackTab (extensão Chrome)
@@ -84,11 +84,11 @@ O zip já sai com o `manifest.json` na raiz. Passo a passo para publicar na
 | Variável | Para que serve |
 |---|---|
 | `RPA_PASTA_DADOS` | Pasta de dados persistentes dos binários (bancos, logs, vault). **Defina sempre.** Os `.cmd`/instaladores já fazem isso. |
-| `PORTA_CONTROL_ROOM` | Porta da Control Room (default 8765) |
-| `HOST_CONTROL_ROOM` | `0.0.0.0` para aceitar a rede (default 127.0.0.1) |
+| `PORTA_LAGOA` | Porta da Lagoa (default 8765) |
+| `HOST_LAGOA` | `0.0.0.0` para aceitar a rede (default 127.0.0.1) |
 | `VAULT_CHAVE` | Frase usada para cifrar os assets no cofre |
-| `CONTROL_ROOM_TOKEN` | Token dos agentes (vazio = Control Room aberta) |
-| `CONTROL_ROOM_URL` | URL que os robôs usam para enxergar a Control Room |
+| `LAGOA_TOKEN` | Token dos agentes (vazio = Lagoa aberta) |
+| `LAGOA_URL` | URL que os robôs usam para enxergar a Lagoa |
 | `TLS_CERT` / `TLS_CHAVE` | Certificado/chave PEM para HTTPS |
 
 Rede, token, TLS e VPN (Tailscale): veja [../data/docs/REDE.md](../data/docs/REDE.md).

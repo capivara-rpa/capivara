@@ -2,16 +2,16 @@
 # Instalador macOS "tudo empacotado" — NÃO exige Python na máquina.
 #
 # Roda de dentro do pacote gerado por `packaging/build_mac.sh` (pasta que contém
-# os binários control_room / robo_agente, a extensão tracktab/ e o .env.example):
+# os binários lagoa / robo_agente, a extensão tracktab/ e o .env.example):
 #
 #   ./instalar_mac.sh                     # instala em ~/RPA Brasil e sobe tudo
 #   ./instalar_mac.sh --token segredo
 #   ./instalar_mac.sh --porta 9000 --maquina mac-arthur --tags mac,sp
-#   ./instalar_mac.sh --sem-agente        # só a Control Room
+#   ./instalar_mac.sh --sem-agente        # só a Lagoa
 #   ./instalar_mac.sh --prefix teste      # instância paralela (não briga com a padrão)
 #   ./instalar_mac.sh --remover
 #
-# Instala Control Room + Agente como serviços (LaunchAgents), para subirem
+# Instala Lagoa + Agente como serviços (LaunchAgents), para subirem
 # sozinhos no login e reconectarem. A extensão TrackTab fica em <DEST>/tracktab
 # (para carregar como "descompactada" enquanto não estiver na Chrome Web Store).
 set -euo pipefail
@@ -22,15 +22,16 @@ DEST="${RPA_DEST:-$HOME/RPA Brasil}"
 DADOS="$DEST/data"
 LOGS="$DADOS/logs"
 
-LABEL_CR="com.rpabrasil.controlroom"
+LABEL_CR="com.rpabrasil.lagoa"
 LABEL_AG="com.rpabrasil.agente"
+LABEL_CR_ANTIGO="com.rpabrasil.controlroom"
 PLIST_CR="$HOME/Library/LaunchAgents/${LABEL_CR}.plist"
 PLIST_AG="$HOME/Library/LaunchAgents/${LABEL_AG}.plist"
 
 PORTA="8765"
 MAQUINA="$(hostname -s 2>/dev/null || hostname)"
 TAGS="mac"
-TOKEN="${CONTROL_ROOM_TOKEN:-}"
+TOKEN="${LAGOA_TOKEN:-}"
 INSTALAR_AGENTE=1
 REMOVER=0
 PREFIXO=""
@@ -51,8 +52,9 @@ done
 # --prefix permite instalar uma 2ª cópia lado a lado (labels/pasta próprios),
 # útil para testar sem mexer na instalação padrão.
 if [ -n "$PREFIXO" ]; then
-    LABEL_CR="com.rpabrasil.${PREFIXO}.controlroom"
+    LABEL_CR="com.rpabrasil.${PREFIXO}.lagoa"
     LABEL_AG="com.rpabrasil.${PREFIXO}.agente"
+    LABEL_CR_ANTIGO="com.rpabrasil.${PREFIXO}.controlroom"
     PLIST_CR="$HOME/Library/LaunchAgents/${LABEL_CR}.plist"
     PLIST_AG="$HOME/Library/LaunchAgents/${LABEL_AG}.plist"
     if [ -z "${RPA_DEST:-}" ]; then
@@ -62,16 +64,16 @@ if [ -n "$PREFIXO" ]; then
     fi
 fi
 
-CONTROL_ROOM="http://127.0.0.1:${PORTA}"
+LAGOA="http://127.0.0.1:${PORTA}"
 UID_NUM="$(id -u)"
 DOMAIN="gui/${UID_NUM}"
 
 remover() {
-    for label in "$LABEL_CR" "$LABEL_AG"; do
+    for label in "$LABEL_CR" "$LABEL_AG" "$LABEL_CR_ANTIGO"; do
         launchctl bootout "${DOMAIN}/${label}" 2>/dev/null || true
     done
-    rm -f "$PLIST_CR" "$PLIST_AG"
-    echo "✅ Serviços da Control Room e do Agente removidos."
+    rm -f "$PLIST_CR" "$PLIST_AG" "$HOME/Library/LaunchAgents/${LABEL_CR_ANTIGO}.plist"
+    echo "✅ Serviços da Lagoa e do Agente removidos."
     echo "   (Os arquivos em '${DEST}' foram mantidos; apague a pasta se quiser.)"
 }
 
@@ -80,7 +82,11 @@ if [ "$REMOVER" = "1" ]; then
     exit 0
 fi
 
-for bin in control_room robo_agente; do
+# Migração do nome antigo (Control Room -> Lagoa): derruba o serviço antigo.
+launchctl bootout "${DOMAIN}/${LABEL_CR_ANTIGO}" 2>/dev/null || true
+rm -f "$HOME/Library/LaunchAgents/${LABEL_CR_ANTIGO}.plist"
+
+for bin in lagoa robo_agente; do
     if [ ! -x "$ORIGEM/$bin" ]; then
         echo "❌ Binário '$bin' não encontrado em '$ORIGEM'."
         echo "   Rode este instalador de dentro do pacote gerado por build_mac.sh."
@@ -90,22 +96,22 @@ done
 
 echo "📦 Instalando em: $DEST"
 mkdir -p "$DEST" "$HOME/Library/LaunchAgents" "$DADOS" "$LOGS"
-cp -f "$ORIGEM/control_room" "$ORIGEM/robo_agente" "$DEST/"
+cp -f "$ORIGEM/lagoa" "$ORIGEM/robo_agente" "$DEST/"
 rm -rf "$DEST/tracktab"
 cp -Rf "$ORIGEM/tracktab" "$DEST/tracktab" 2>/dev/null || true
 cp -f "$ORIGEM/.env.example" "$DEST/.env.example" 2>/dev/null || true
-chmod +x "$DEST/control_room" "$DEST/robo_agente"
+chmod +x "$DEST/lagoa" "$DEST/robo_agente"
 
 # Sem isso o Gatekeeper pode bloquear binários baixados da internet.
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 
 if [ ! -f "$DEST/.env" ]; then
     cat > "$DEST/.env" <<ENV
-# Configuração da instalação local da Control Room (RPA Brasil)
+# Configuração da instalação local da Lagoa (Capivara)
 RPA_PASTA_DADOS=$DADOS
-PORTA_CONTROL_ROOM=$PORTA
-CONTROL_ROOM_URL=$CONTROL_ROOM
-CONTROL_ROOM_TOKEN=$TOKEN
+PORTA_LAGOA=$PORTA
+LAGOA_URL=$LAGOA
+LAGOA_TOKEN=$TOKEN
 VAULT_CHAVE=troque-esta-chave
 ENV
     echo "ℹ️  .env criado em $DEST/.env"
@@ -115,9 +121,9 @@ plist_comum_env() {
     cat <<ENV
         <key>RPA_PASTA_DADOS</key>
         <string>${DADOS}</string>
-        <key>CONTROL_ROOM_URL</key>
-        <string>${CONTROL_ROOM}</string>
-        <key>CONTROL_ROOM_TOKEN</key>
+        <key>LAGOA_URL</key>
+        <string>${LAGOA}</string>
+        <key>LAGOA_TOKEN</key>
         <string>${TOKEN}</string>
         <key>PYTHONUNBUFFERED</key>
         <string>1</string>
@@ -126,7 +132,7 @@ plist_comum_env() {
 ENV
 }
 
-# ------------------------- Control Room (serviço) -------------------------
+# ------------------------- Lagoa (serviço) -------------------------
 cat > "$PLIST_CR" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -136,7 +142,7 @@ cat > "$PLIST_CR" <<PLIST
     <string>${LABEL_CR}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>${DEST}/control_room</string>
+        <string>${DEST}/lagoa</string>
         <string>--porta</string>
         <string>${PORTA}</string>
         <string>--sem-navegador</string>
@@ -154,9 +160,9 @@ $(plist_comum_env)
     <key>ThrottleInterval</key>
     <integer>10</integer>
     <key>StandardOutPath</key>
-    <string>${LOGS}/control_room.out.log</string>
+    <string>${LOGS}/lagoa.out.log</string>
     <key>StandardErrorPath</key>
-    <string>${LOGS}/control_room.err.log</string>
+    <string>${LOGS}/lagoa.err.log</string>
 </dict>
 </plist>
 PLIST
@@ -164,7 +170,7 @@ PLIST
 launchctl bootout "${DOMAIN}/${LABEL_CR}" 2>/dev/null || true
 launchctl bootstrap "$DOMAIN" "$PLIST_CR" || launchctl load -w "$PLIST_CR"
 launchctl kickstart -k "${DOMAIN}/${LABEL_CR}" 2>/dev/null || true
-echo "✅ Control Room instalada como serviço (${LABEL_CR})."
+echo "✅ Lagoa instalada como serviço (${LABEL_CR})."
 
 # ----------------------------- Agente (serviço) -----------------------------
 if [ "$INSTALAR_AGENTE" = "1" ]; then
@@ -178,8 +184,8 @@ if [ "$INSTALAR_AGENTE" = "1" ]; then
     <key>ProgramArguments</key>
     <array>
         <string>${DEST}/robo_agente</string>
-        <string>--control-room</string>
-        <string>${CONTROL_ROOM}</string>
+        <string>--lagoa</string>
+        <string>${LAGOA}</string>
         <string>--maquina</string>
         <string>${MAQUINA}</string>
         <string>--tags</string>
@@ -214,9 +220,9 @@ else
 fi
 
 echo ""
-echo "🎉 Pronto! A Control Room sobe sozinha no login."
-echo "   Painel:        ${CONTROL_ROOM}"
-echo "   Trace:         ${CONTROL_ROOM}/monitor/"
+echo "🎉 Pronto! A Lagoa sobe sozinha no login."
+echo "   Painel:        ${LAGOA}"
+echo "   Trace:         ${LAGOA}/monitor/"
 echo "   Dados/logs:    ${DADOS}"
 echo "   Extensão:      carregue '${DEST}/tracktab' em chrome://extensions (Modo dev)"
 echo "   Status:        launchctl print ${DOMAIN}/${LABEL_CR}"

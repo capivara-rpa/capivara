@@ -1,6 +1,6 @@
 """Ambiente isolado por robô (``.venv`` + ``requirements.txt``).
 
-Quando um robô publicado na Control Room traz um ``requirements.txt`` na sua
+Quando um robô publicado na Lagoa traz um ``requirements.txt`` na sua
 pasta, o agente cria um ambiente virtual só para ele: cria a ``.venv`` (se
 ainda não existir), atualiza o ``pip``, instala as dependências e executa o
 fluxo nesse interpretador — evitando que um robô quebre o outro por causa de

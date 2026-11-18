@@ -30,6 +30,8 @@ dados = ["pandas>=2.1.0", "openpyxl>=3.1.0"]
 cofre = ["cryptography>=42.0.0"]
 pacotes = ["pyzipper>=0.3.6"]
 interacao = ["pyperclip>=1.8.2"]
+lagoa = ["cryptography>=42.0.0", "pyzipper>=0.3.6"]
+# Legado (mantido para quem já instalou com este extra)
 control-room = ["cryptography>=42.0.0", "pyzipper>=0.3.6"]
 all = [
     "selenium>=4.20.0",

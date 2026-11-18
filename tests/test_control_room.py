@@ -1,4 +1,4 @@
-"""Testes do orquestrador (Control Room): máquinas, jobs, tags, triggers e assets."""
+"""Testes do orquestrador (Lagoa): máquinas, jobs, tags, triggers e assets."""
 
 from datetime import datetime
 
@@ -266,8 +266,8 @@ class _PedidoFalso:
 
 def test_token_agente_exigido_quando_auth_ligado(monkeypatch):
     metodo = servidor_orq.ManipuladorControlRoom._token_agente_ok
-    monkeypatch.setattr(servidor_orq, "CONTROL_ROOM_TOKEN", "")
-    monkeypatch.setattr(servidor_orq, "CONTROL_ROOM_AUTH", True)
+    monkeypatch.setattr(servidor_orq, "LAGOA_TOKEN", "")
+    monkeypatch.setattr(servidor_orq, "LAGOA_AUTH", True)
 
     assert not metodo(_PedidoFalso())
 
@@ -275,7 +275,7 @@ def test_token_agente_exigido_quando_auth_ligado(monkeypatch):
     token = servico.emitir_token_maquina("maq-tok")
     assert metodo(_PedidoFalso({"Authorization": f"Bearer {token}"}))
 
-    monkeypatch.setattr(servidor_orq, "CONTROL_ROOM_AUTH", False)
+    monkeypatch.setattr(servidor_orq, "LAGOA_AUTH", False)
     assert metodo(_PedidoFalso())
 
 

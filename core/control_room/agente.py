@@ -1,6 +1,6 @@
 """Agente de execução (o "robot" que roda dentro de cada máquina).
 
-Fica registrado na Control Room, envia heartbeat, busca jobs direcionados à
+Fica registrado na Lagoa, envia heartbeat, busca jobs direcionados à
 sua máquina, executa o fluxo Python correspondente e devolve o resultado —
 registrando o passo a passo no monitor (trace).
 
@@ -10,9 +10,9 @@ registrando o passo a passo no monitor (trace).
     python -m core.control_room.agente --maquina maquina-01 --fila clientes
     python -m core.control_room.agente --maquina maquina-01 --token <token-da-maquina>
 
-Cada máquina pode ter o seu próprio token (emitido na aba Acessos da Control
-Room ou via ``POST /api/orq/maquinas/<nome>/token``). Sem ``--token`` o agente
-usa ``CONTROL_ROOM_TOKEN`` do ``.env``.
+Cada máquina pode ter o seu próprio token (emitido na aba Acessos da Lagoa
+ou via ``POST /api/orq/maquinas/<nome>/token``). Sem ``--token`` o agente
+usa ``LAGOA_TOKEN`` do ``.env``.
 
 Cada máquina tem o seu próprio processo de agente. Para simular várias
 máquinas, abra vários terminais com nomes diferentes.
@@ -52,7 +52,7 @@ from core.control_room import ambiente  # noqa: E402
 from core.logger import configurar_logger  # noqa: E402
 from core.monitor import Monitor  # noqa: E402
 from core.robo import Robo  # noqa: E402
-from settings.parametros import CONTROL_ROOM_TOKEN, PASTA_ROBOS  # noqa: E402
+from settings.parametros import LAGOA_TOKEN, LAGOA_URL, PASTA_ROBOS  # noqa: E402
 
 
 def resolver_fluxo(caminho: str) -> Callable:
@@ -82,7 +82,7 @@ class Agente:
         self.intervalo = intervalo
         self.capturar_logs = capturar_logs
         self.fila = fila
-        self.token = token if token is not None else CONTROL_ROOM_TOKEN
+        self.token = token if token is not None else LAGOA_TOKEN
 
     # ------------------------------------------------------------------
     def _cabecalhos(self) -> dict[str, str]:
@@ -106,7 +106,7 @@ class Agente:
         return resposta.json()
 
     def asset(self, nome: str) -> str | None:
-        """Busca um asset (credencial/variável) na Control Room.
+        """Busca um asset (credencial/variável) na Lagoa.
 
         Uso dentro de um fluxo::
 
@@ -117,7 +117,7 @@ class Agente:
         return dados.get("valor")
 
     def credencial(self, nome: str, processo_id: int | None = None) -> dict | None:
-        """Busca uma credencial completa (``{usuario, senha, ...}``) na Control Room.
+        """Busca uma credencial completa (``{usuario, senha, ...}``) na Lagoa.
 
         Uso dentro de um fluxo::
 
@@ -140,7 +140,7 @@ class Agente:
         return getattr(self, "_item_atual", None)
 
     def cancelado(self) -> bool:
-        """Diz se o job em execução foi cancelado na Control Room.
+        """Diz se o job em execução foi cancelado na Lagoa.
 
         Fluxos longos podem checar periodicamente para encerrar mais cedo::
 
@@ -162,7 +162,7 @@ class Agente:
         return (dados.get("job") or {}).get("status") == "cancelado"
 
     def registrar(self) -> None:
-        """Registra a máquina na Control Room."""
+        """Registra a máquina na Lagoa."""
         info = f"Python {sys.version.split()[0]}"
         self._post(
             f"/api/orq/agente/{self.maquina}/registrar",
@@ -198,7 +198,7 @@ class Agente:
         return True
 
     def ciclo_fila(self) -> bool:
-        """Consome o próximo item de uma fila como um job (UiPath-like)."""
+        """Consome o próximo item de uma fila como um job (estilo filas de RPA)."""
         resposta = self._post(
             f"/api/orq/filas/{quote(self.fila)}/proximo", {"maquina": self.maquina}
         )
@@ -367,7 +367,7 @@ class Agente:
             try:
                 executou = self.ciclo()
             except requests.RequestException as erro:
-                logger.warning(f"Control Room indisponível ({erro}). Tentando de novo...")
+                logger.warning(f"Lagoa indisponível ({erro}). Tentando de novo...")
                 executou = False
 
             if uma_vez:
@@ -376,7 +376,7 @@ class Agente:
                 time.sleep(self.intervalo)
 
     def _registrar_com_retry(self) -> None:
-        """Registra a máquina; insiste se a Control Room estiver fora do ar.
+        """Registra a máquina; insiste se a Lagoa estiver fora do ar.
 
         Um erro 401 (token ausente/inválido) é definitivo: avisa e encerra.
         """
@@ -387,19 +387,26 @@ class Agente:
             except requests.HTTPError as erro:
                 if erro.response is not None and erro.response.status_code == 401:
                     logger.error(
-                        "Control Room recusou o agente (401). Confira o token "
-                        "(--token ou CONTROL_ROOM_TOKEN no .env)."
+                        "Lagoa recusou o agente (401). Confira o token "
+                        "(--token ou LAGOA_TOKEN no .env)."
                     )
                     raise
                 logger.warning(f"Falha ao registrar ({erro}). Tentando de novo...")
             except requests.RequestException as erro:
-                logger.warning(f"Control Room indisponível ({erro}). Tentando de novo...")
+                logger.warning(f"Lagoa indisponível ({erro}). Tentando de novo...")
             time.sleep(self.intervalo)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Agente de execução de robôs.")
-    parser.add_argument("--control-room", default="http://127.0.0.1:8765", help="URL da Control Room")
+    parser.add_argument(
+        "--lagoa",
+        "--control-room",
+        dest="control_room",
+        metavar="URL",
+        default=LAGOA_URL,
+        help="URL da Lagoa",
+    )
     parser.add_argument("--maquina", default=socket.gethostname(), help="Nome desta máquina")
     parser.add_argument("--tags", default=None, help="Tags separadas por vírgula")
     parser.add_argument("--intervalo", type=float, default=3.0, help="Segundos entre consultas")
@@ -412,8 +419,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--token",
-        default=CONTROL_ROOM_TOKEN,
-        help="Token do agente (Authorization: Bearer). Default: CONTROL_ROOM_TOKEN do .env",
+        default=LAGOA_TOKEN,
+        help="Token do agente (Authorization: Bearer). Default: LAGOA_TOKEN do .env",
     )
     opcoes = parser.parse_args()
 

@@ -1,14 +1,14 @@
 # Guia de instalação e uso — Capivara 🦫
 
-Este guia leva você **do zero** até um robô rodando na Control Room, com agente
+Este guia leva você **do zero** até um robô rodando na Lagoa, com agente
 instalado e **token do dispositivo** configurado. Se você só quer a visão geral,
 veja o [`README.md`](README.md); aqui o foco é **passo a passo operacional**.
 
 > Terminologia rápida
 > - **Robô / Fluxo**: sua automação (o código Python em `app/fluxos/`).
-> - **Control Room**: o painel/orquestrador que organiza máquinas, processos e jobs.
+> - **Lagoa**: o painel/orquestrador que organiza máquinas, processos e jobs.
 > - **Monitor**: painel com o *trace* (passo a passo) de cada execução.
-> - **Agente**: o programinha que roda **em cada máquina** e executa os jobs.
+> - **Agente (capivara)**: o programinha que roda **em cada máquina** e executa os jobs.
 > - **Dispositivo / Máquina**: uma máquina cadastrada onde um agente roda.
 
 ---
@@ -68,18 +68,18 @@ Você **não precisa** mexer em tudo — só no que for usar. Os campos mais com
 |---|---|---|
 | `AMBIENTE` | `dev` (navegador visível) ou `prod` (headless) | `dev` |
 | `HEADLESS` | Força esconder a janela do Chrome | `false` |
-| `HOST_CONTROL_ROOM` | `127.0.0.1` (só esta máquina) ou `0.0.0.0` (aceita a rede) | `127.0.0.1` |
-| `PORTA_CONTROL_ROOM` | Porta do painel (Control Room em `/`, Monitor em `/monitor/`) | `8765` |
-| `CONTROL_ROOM_URL` | Onde o robô/agente busca dados (assets/filas) | `http://127.0.0.1:8765` |
-| `CONTROL_ROOM_TOKEN` | Token **global** do agente (vazio = painel aberto em dev) | *(vazio)* |
-| `CONTROL_ROOM_AUTH` | `true` exige **login** no painel; `false` deixa aberto (dev/LAN) | `false` |
-| `ADMIN_EMAIL` / `ADMIN_SENHA` | Admin criado no 1º start quando `CONTROL_ROOM_AUTH=true` | `admin@rpa.local` / `admin` |
+| `HOST_LAGOA` | `127.0.0.1` (só esta máquina) ou `0.0.0.0` (aceita a rede) | `127.0.0.1` |
+| `PORTA_LAGOA` | Porta do painel (Lagoa em `/`, Monitor em `/monitor/`) | `8765` |
+| `LAGOA_URL` | Onde o robô/agente busca dados (assets/filas) | `http://127.0.0.1:8765` |
+| `LAGOA_TOKEN` | Token **global** do agente (vazio = painel aberto em dev) | *(vazio)* |
+| `LAGOA_AUTH` | `true` exige **login** no painel; `false` deixa aberto (dev/LAN) | `false` |
+| `ADMIN_EMAIL` / `ADMIN_SENHA` | Admin criado no 1º start quando `LAGOA_AUTH=true` | `admin@rpa.local` / `admin` |
 | `VAULT_CHAVE` | Frase que cifra os segredos (assets) | *(troque!)* |
 | `SEGUNDOS_OFFLINE` | Tempo sem heartbeat até a máquina ficar **offline** | `60` |
 | `LIMITE_JOB_SEGUNDOS` | Tempo até um job gerar **alerta de SLA** | `300` |
 
 > Comece com os padrões. Só em produção troque `ADMIN_SENHA`, defina
-> `VAULT_CHAVE` e decida sobre `CONTROL_ROOM_AUTH`/`CONTROL_ROOM_TOKEN`.
+> `VAULT_CHAVE` e decida sobre `LAGOA_AUTH`/`LAGOA_TOKEN`.
 
 ---
 
@@ -99,7 +99,7 @@ Para criar seu próprio fluxo, veja a seção *Criando seu primeiro robô* no
 
 ## 4b. Monitor (trace das execuções)
 
-O Monitor mostra o **passo a passo** de cada execução (útil mesmo sem Control Room):
+O Monitor mostra o **passo a passo** de cada execução (útil mesmo sem Lagoa):
 
 ```bash
 bash scripts/monitor.sh --exemplos     # Linux / macOS
@@ -120,26 +120,26 @@ monitor.erro_negocio("CPF inválido na linha 42")
 
 ---
 
-## 4. Subir a Control Room
+## 4. Subir a Lagoa
 
 ```bash
 # Linux / macOS (--exemplos popula máquinas/processos/jobs de demonstração)
-bash scripts/control_room.sh --exemplos
+bash scripts/lagoa.sh --exemplos
 
 # Windows
-scripts\control_room.bat --exemplos
+scripts\lagoa.bat --exemplos
 ```
 
 Abra no navegador:
 
-- **Control Room** → http://localhost:8765
+- **Lagoa** → http://localhost:8765
 - **Monitor (trace)** → http://localhost:8765/monitor/
 
-O menu lateral tem: **Control Room** (jobs), **Dispositivos**, **Filas**,
+O menu lateral tem: **Lagoa** (jobs), **Dispositivos**, **Filas**,
 **Credenciais**, **Acessos** e **Sistema → Monitor**.
 Use o botão do rodapé da barra lateral para alternar **tema claro/escuro**.
 
-> A Control Room e o Monitor usam **SQLite + biblioteca padrão**. Os bancos ficam
+> A Lagoa e o Monitor usam **SQLite + biblioteca padrão**. Os bancos ficam
 > em `data/orquestrador.db` e `data/monitor.db` (fora do Git).
 
 ---
@@ -173,7 +173,7 @@ O menu **Dispositivos** é onde você cadastra e gerencia as máquinas.
 
 ## 6. O **token do dispositivo** — onde ele vai
 
-Quando você clica em **Gerar token** na tabela de Dispositivos, a Control Room
+Quando você clica em **Gerar token** na tabela de Dispositivos, a Lagoa
 cria um segredo **exclusivo daquela máquina**. Ele é a credencial que o **agente**
 usa para provar que é aquela máquina.
 
@@ -216,7 +216,7 @@ No **Windows**, use a Tarefa Agendada apontando para `scripts\agente.bat` (ou o
 atalho criado pelo instalador) passando `--token`. O instalador `.exe` também
 oferece iniciar o agente junto com o Windows.
 
-> 💡 Alternativa sem `--token`: defina o mesmo valor em `CONTROL_ROOM_TOKEN` no
+> 💡 Alternativa sem `--token`: defina o mesmo valor em `LAGOA_TOKEN` no
 > `.env` da máquina. Mas atenção: **esse é o token global**, compartilhado por
 > todos os agentes — o token **por máquina** é mais seguro e auditável.
 
@@ -224,12 +224,12 @@ oferece iniciar o agente junto com o Windows.
 
 | Cenário | O agente precisa de token? |
 |---|---|
-| `CONTROL_ROOM_TOKEN` vazio **e** `CONTROL_ROOM_AUTH=false` | **Não** — painel aberto (dev/rede local). O agente conecta sem token. |
-| `CONTROL_ROOM_TOKEN` definido (global) | Sim — use o **global** ou um **token de máquina**. |
-| `CONTROL_ROOM_AUTH=true` (login ligado) | Sim — precisa do **token de máquina** (ou global). |
+| `LAGOA_TOKEN` vazio **e** `LAGOA_AUTH=false` | **Não** — painel aberto (dev/rede local). O agente conecta sem token. |
+| `LAGOA_TOKEN` definido (global) | Sim — use o **global** ou um **token de máquina**. |
+| `LAGOA_AUTH=true` (login ligado) | Sim — precisa do **token de máquina** (ou global). |
 
 Ou seja: no seu laboratório em rede local, o token é opcional. No momento em que
-você expõe a Control Room (fora da sua máquina) **ou** liga o login, o token passa
+você expõe a Lagoa (fora da sua máquina) **ou** liga o login, o token passa
 a ser obrigatório.
 
 ### 6.4 Revogar / trocar
@@ -265,7 +265,7 @@ e **feriados nacionais**. Cada linha tem **Executar agora**, **Pausar/Ativar** e
 **Remover**.
 
 **Automações** (aba Automações): publique um robô enviando um **.zip** com o
-manifesto `rpa.json` (senha AES opcional). A Control Room extrai em
+manifesto `rpa.json` (senha AES opcional). A Lagoa extrai em
 `app/robos/<nome>/` e cadastra o processo no catálogo sozinha; o botão **Remover**
 desinstala. Se o robô tiver um **`requirements.txt`** próprio, o agente cria um
 **`.venv` isolado** para ele na hora de executar (cria venv → atualiza pip →
@@ -277,10 +277,10 @@ passo a passo em
 **Instalar de um repositório Git** — na mesma aba, informe a **URL HTTPS**
 (pública) de um repositório que tenha o `rpa.json` na raiz e clique em
 **Instalar do Git**. Opcionalmente, informe um **branch/tag** no campo ao lado.
-A Control Room clona (shallow), valida o manifesto e instala igual ao `.zip`.
+A Lagoa clona (shallow), valida o manifesto e instala igual ao `.zip`.
 Robôs instalados assim ganham o botão **Atualizar**: ele clona de novo e
 substitui a versão em uso (um clique, sem reinstalar à mão). Requer o **`git`**
-instalado na máquina da Control Room. Só repositórios **públicos** por enquanto
+instalado na máquina da Lagoa. Só repositórios **públicos** por enquanto
 (privados exigem token — roadmap). Pela linha de comando:
 
 ```bash
@@ -309,7 +309,7 @@ O fluxo recebe `item`:
 ```python
 def meu_fluxo(navegador=None, item=None, agente=None):
     dados = item["dados"]   # {"nome": "ACME", "uf": "SP"}
-    if agente and agente.cancelado():   # job cancelado na Control Room
+    if agente and agente.cancelado():   # job cancelado na Lagoa
         return False
 ```
 
@@ -338,11 +338,11 @@ recente) e botões para **Exportar CSV** e **Expurgar antigos**.
 
 ## 9. Login e permissões (multiempresa)
 
-Por padrão o painel é aberto (`CONTROL_ROOM_AUTH=false`). Para exigir login:
+Por padrão o painel é aberto (`LAGOA_AUTH=false`). Para exigir login:
 
 ```bash
 # no .env:
-CONTROL_ROOM_AUTH=true
+LAGOA_AUTH=true
 ADMIN_EMAIL=admin@rpa.local
 ADMIN_SENHA=admin        # troque pelo painel depois do 1º login
 ```
@@ -359,15 +359,15 @@ usuários, papéis e permissões (`jobs.disparar`, `maquinas.gerir`, `assets.ger
 
 ```bash
 # .env do servidor
-HOST_CONTROL_ROOM=0.0.0.0
-CONTROL_ROOM_TOKEN="um-segredo-bem-grande"
+HOST_LAGOA=0.0.0.0
+LAGOA_TOKEN="um-segredo-bem-grande"
 ```
 
 2. Na outra máquina, aponte o agente para o IP do servidor:
 
 ```bash
 python -m core.control_room.agente --maquina maquina-02 --tags "rh,sp" \
-    --control-room http://10.0.0.5:8765 --token "um-segredo-bem-grande"
+    --lagoa http://10.0.0.5:8765 --token "um-segredo-bem-grande"
 ```
 
 Para expor fora da rede local, prefira um **overlay** (Tailscale/ZeroTier) e/ou
@@ -383,7 +383,7 @@ Para uma máquina **sem Python**, gere binários com **PyInstaller**:
 ```bash
 pip install pyinstaller
 
-# macOS: pacote completo (Control Room + Agente + TrackTab + serviços)
+# macOS: pacote completo (Lagoa + Agente + TrackTab + serviços)
 bash packaging/build_mac.sh          # gera dist/RPA-Brasil-macos.zip
 
 # Windows: instalador .exe (Inno Setup)
@@ -391,7 +391,7 @@ iscc packaging/inno_setup.iss        # gera o instalador com atalhos/autostart
 ```
 
 No pacote macOS, `instalar_mac.sh` copia tudo para `~/RPA Brasil`, cria `.env` e
-`data/`, e instala Control Room **e** agente como serviços. Detalhes em
+`data/`, e instala Lagoa **e** agente como serviços. Detalhes em
 [`packaging/README.md`](packaging/README.md).
 
 > Os binários guardam dados em `RPA_PASTA_DADOS` (defina para persistir fora da
@@ -404,13 +404,13 @@ No pacote macOS, `instalar_mac.sh` copia tudo para `~/RPA Brasil`, cria `.env` e
 | Sintoma | Causa provável / solução |
 |---|---|
 | **"Gerar token" mas o agente não conecta** | O token do agente não confere. Confira se copiou o valor **completo** e se o `--token` é o mesmo da máquina. Teste com `--uma-vez`. |
-| **Agente recebe `401`** | Token ausente/inválido, ou `CONTROL_ROOM_AUTH=true` sem token de máquina. Veja a seção [6.3](#63-quando-o-token-é-realmente-exigido). |
+| **Agente recebe `401`** | Token ausente/inválido, ou `LAGOA_AUTH=true` sem token de máquina. Veja a seção [6.3](#63-quando-o-token-é-realmente-exigido). |
 | **Máquina aparece `offline` logo após cadastrar** | Normal: ela só fica `online` quando o agente com **o mesmo nome** faz heartbeat. |
 | **Job fica `pendente` para sempre / máquina `offline` com plist instalado** | O serviço do agente **não está carregado** no launchd (comum após reboot ou instalação interrompida). Confira: `launchctl print gui/$(id -u)/com.rpabrasil.agente` — se não achar, rode de novo `bash scripts/instalar_agente_mac.sh --maquina NOME`. O script já retenta o carregamento e **só imprime ✅ se o serviço subir de verdade**. |
 | **`MAC address`/nome diferente do esperado** | O agente usa `--maquina`; o padrão é o hostname. Use o mesmo nome do cadastro. |
 | **Perdi o token** | Não tem como recuperar (só guardamos o hash). Clique em **Revogar token** e **Gerar token** de novo. |
 | **Login pede senha e não sei qual** | Sem `ADMIN_SENHA` definido, o padrão é `admin@rpa.local` / `admin`. Troque no `.env` e reinicie. |
-| **Painel não abre em outra máquina** | Suba com `HOST_CONTROL_ROOM=0.0.0.0` e libere a porta no firewall. |
+| **Painel não abre em outra máquina** | Suba com `HOST_LAGOA=0.0.0.0` e libere a porta no firewall. |
 | **Robô web abre CAPTCHA do Google** | Comum em IP de cloud/sandbox. Use `AMBIENTE=prod` (headless) e/ou outro site de teste. |
 | **Agente empacotado não acha meus fluxos** | Os binários (PyInstaller) não importam fluxos externos (`bot_test`, `.zip`). Rode do **fonte** (`.venv`) para isso. |
 | **Agente demora ~10s pra subir no macOS** | *Cold start* do Rosetta ao rodar Python Intel; depois fica rápido. |

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Roda o agente (runner) da Control Room a partir do código-fonte - Linux/macOS
+# Roda o agente (runner) da Lagoa a partir do código-fonte - Linux/macOS
 #   scripts/agente.sh                              -> usa o hostname como máquina
 #   scripts/agente.sh --maquina meu-mac --tags mac
-#   scripts/agente.sh --control-room http://10.0.0.5:8765
+#   scripts/agente.sh --lagoa http://10.0.0.5:8765
 #   scripts/agente.sh --fila pedidos_teste
 set -euo pipefail
 

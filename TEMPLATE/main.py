@@ -1,9 +1,9 @@
-"""Robô de exemplo — ponto de partida para publicar na Control Room.
+"""Robô de exemplo — ponto de partida para publicar na Lagoa.
 
 1. Renomeie a pasta e ajuste o ``rpa.json`` (principalmente ``nome`` e ``descricao``).
 2. Escreva a automação dentro da função ``rodar`` (ou mude o nome dela no rpa.json).
 3. Empacote:  python -m core.control_room.pacote empacotar TEMPLATE/
-4. Suba o .zip na aba **Automações** da Control Room.
+4. Suba o .zip na aba **Automações** da Lagoa.
 """
 
 

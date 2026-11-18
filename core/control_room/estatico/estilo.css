@@ -1,4 +1,4 @@
-/* Capivara · Control Room — paleta da marca (mata, verde, amarelo, areia) */
+/* Capivara · Lagoa — paleta da marca (mata, verde, amarelo, areia) */
 :root {
     --sidebar-bg: #0E1411;
     --sidebar-text: #FAF6EF;
@@ -88,7 +88,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Layout */
 .layout {
-    display: flex;
+    display: block;
     min-height: 100vh;
 }
 
@@ -518,7 +518,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Main grid */
 .main-grid {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: minmax(0, 1fr) 320px;
     gap: 20px;
     align-items: start;
 }
@@ -649,7 +649,7 @@ h1, h2, h3, h4, h5, h6 {
     display: none;
 }
 
-/* Monitor embutido (mantém a sidebar da Control Room) */
+/* Monitor embutido (mantém a sidebar da Lagoa) */
 .frame-monitor {
     width: 100%;
     height: calc(100vh - 200px);

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Gera o instalador .dmg do macOS com um app de duplo-clique:
 #
-#   "Instalar RPA Brasil.app"  ->  instala a Control Room + o Agente (LaunchAgents)
+#   "Instalar RPA Brasil.app"  ->  instala a Lagoa + o Agente (LaunchAgents)
 #
 # Uso:
 #   bash packaging/build_dmg.sh            # usa dist/RPA-Brasil (builda se faltar)
@@ -26,7 +26,7 @@ for arg in "$@"; do
     esac
 done
 
-if [ "$REBUILD" = "1" ] || [ ! -x "$PAYLOAD/control_room" ] || [ ! -x "$PAYLOAD/robo_agente" ]; then
+if [ "$REBUILD" = "1" ] || [ ! -x "$PAYLOAD/lagoa" ] || [ ! -x "$PAYLOAD/robo_agente" ]; then
     echo "🔨 Buildando o pacote macOS (PyInstaller)..."
     bash "$RAIZ/packaging/build_mac.sh"
 fi
@@ -95,7 +95,7 @@ trap 'rm -rf "$TMP"' EXIT
 ditto "$PAYLOAD" "$TMP/payload"
 xattr -dr com.apple.quarantine "$TMP" 2>/dev/null || true
 
-osascript -e 'display notification "Instalando a Control Room e o Agente…" with title "RPA Brasil"' 2>/dev/null || true
+osascript -e 'display notification "Instalando a Lagoa e o Agente…" with title "RPA Brasil"' 2>/dev/null || true
 
 # ignora o argumento -psn_... que o Finder às vezes passa
 args=()
@@ -110,7 +110,7 @@ if "$TMP/payload/instalar_mac.sh" ${args[@]+"${args[@]}"} >"$LOG" 2>&1; then
         curl -s -o /dev/null "$URL/api/orq/painel" && break
         sleep 1
     done
-    osascript -e 'display dialog "RPA Brasil instalado com sucesso!\n\nA Control Room vai abrir no navegador." buttons {"OK"} default button "OK" with title "RPA Brasil" with icon note' 2>/dev/null || true
+    osascript -e 'display dialog "RPA Brasil instalado com sucesso!\n\nA Lagoa vai abrir no navegador." buttons {"OK"} default button "OK" with title "RPA Brasil" with icon note' 2>/dev/null || true
     open "$URL" 2>/dev/null || true
 else
     osascript -e "display dialog \"A instalação falhou.\n\nVeja o log em:\n$LOG\" buttons {\"OK\"} default button \"OK\" with title \"RPA Brasil\" with icon stop" 2>/dev/null || true
@@ -137,7 +137,7 @@ RPA Brasil — instalação (macOS)
 2) O instalador:
    - copia tudo para ~/RPA Brasil;
    - cria o .env e a pasta data/;
-   - instala a Control Room e o Agente como serviços (sobem no login);
+   - instala a Lagoa e o Agente como serviços (sobem no login);
    - abre o painel no navegador.
 
 3) Painel:  http://127.0.0.1:8765

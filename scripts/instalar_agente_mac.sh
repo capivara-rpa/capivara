@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Instala o agente da Control Room como serviço (LaunchAgent) no macOS.
+# Instala o agente da Lagoa como serviço (LaunchAgent) no macOS.
 # O agente sobe junto com a sua sessão, sem precisar de terminal aberto, e
-# fica reconectando sozinho na Control Room.
+# fica reconectando sozinho na Lagoa.
 #
 #   scripts/instalar_agente_mac.sh
 #   scripts/instalar_agente_mac.sh --maquina mac-do-arthur --tags mac,sp
-#   scripts/instalar_agente_mac.sh --control-room http://10.0.0.5:8765
+#   scripts/instalar_agente_mac.sh --lagoa http://10.0.0.5:8765
 #   scripts/instalar_agente_mac.sh --fila pedidos_teste
 #   scripts/instalar_agente_mac.sh --remover
 set -euo pipefail
@@ -17,17 +17,17 @@ PYTHON="$ROOT/.venv/bin/python"
 LOGS="$ROOT/data/logs"
 
 MAQUINA="$(hostname -s 2>/dev/null || hostname)"
-CONTROL_ROOM="http://127.0.0.1:8765"
+LAGOA="http://127.0.0.1:8765"
 TAGS="mac"
 FILA=""
-TOKEN="${CONTROL_ROOM_TOKEN:-}"
+TOKEN="${LAGOA_TOKEN:-}"
 REMOVER=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --remover) REMOVER=1; shift ;;
         --maquina) MAQUINA="$2"; shift 2 ;;
-        --control-room) CONTROL_ROOM="$2"; shift 2 ;;
+        --lagoa) LAGOA="$2"; shift 2 ;;
         --tags) TAGS="$2"; shift 2 ;;
         --fila) FILA="$2"; shift 2 ;;
         --token) TOKEN="$2"; shift 2 ;;
@@ -61,8 +61,8 @@ ARGS="        <string>${PYTHON}</string>
         <string>core.control_room.agente</string>
         <string>--maquina</string>
         <string>${MAQUINA}</string>
-        <string>--control-room</string>
-        <string>${CONTROL_ROOM}</string>"
+        <string>--lagoa</string>
+        <string>${LAGOA}</string>"
 if [ -n "$TAGS" ]; then
     ARGS="${ARGS}
         <string>--tags</string>
@@ -94,9 +94,9 @@ ${ARGS}
     <string>${ROOT}</string>
     <key>EnvironmentVariables</key>
     <dict>
-        <key>CONTROL_ROOM_URL</key>
-        <string>${CONTROL_ROOM}</string>
-        <key>CONTROL_ROOM_TOKEN</key>
+        <key>LAGOA_URL</key>
+        <string>${LAGOA}</string>
+        <key>LAGOA_TOKEN</key>
         <string>${TOKEN}</string>
         <key>PYTHONUNBUFFERED</key>
         <string>1</string>
@@ -146,15 +146,15 @@ fi
 
 echo "✅ Agente instalado como serviço (${LABEL})."
 echo "   Máquina:      ${MAQUINA}"
-echo "   Control Room: ${CONTROL_ROOM}${FILA:+  (fila: ${FILA})}"
+echo "   Lagoa: ${LAGOA}${FILA:+  (fila: ${FILA})}"
 if [ -n "$TOKEN" ]; then
     echo "   Token:        definido"
 else
-    echo "   Token:        não definido (Control Room aberta)"
+    echo "   Token:        não definido (Lagoa aberta)"
 fi
 echo "   Logs:         ${LOGS}/agente.out.log e agente.err.log"
 echo "   Status:       launchctl print ${DOMAIN}/${LABEL}"
 echo "   Remover:      scripts/instalar_agente_mac.sh --remover"
 echo ""
 echo "ℹ️  A 1ª subida pode demorar ~30s (tradução do Rosetta em Macs Apple Silicon)."
-echo "    Confira a máquina '${MAQUINA}' ficar ONLINE no painel da Control Room."
+echo "    Confira a máquina '${MAQUINA}' ficar ONLINE no painel da Lagoa."

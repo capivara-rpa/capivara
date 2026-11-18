@@ -222,7 +222,7 @@ with Navegador() as navegador:
 
 ## 🔐 Cofre / Credenciais v2 — `from core.rpa import vault`
 
-Segredos ficam centralizados e cifrados na Control Room (vault Fernet). O fluxo
+Segredos ficam centralizados e cifrados na Lagoa (vault Fernet). O fluxo
 busca na hora de usar — nada de senha no código nem no `.env`.
 
 ```python
@@ -267,7 +267,7 @@ def meu_fluxo(agente):
 
 Tudo local no SQLite (`data/orquestrador.db`), sem dependência externa.
 
-- **Login / RBAC**: `CONTROL_ROOM_AUTH=true` exige sessão no painel. Na primeira
+- **Login / RBAC**: `LAGOA_AUTH=true` exige sessão no painel. Na primeira
   subida é criado o admin de `ADMIN_EMAIL`/`ADMIN_SENHA`. A sessão é um cookie
   `HttpOnly` válido por `SESSAO_HORAS`.
 
@@ -288,7 +288,7 @@ Tudo local no SQLite (`data/orquestrador.db`), sem dependência externa.
 
 - **Token por máquina**: `emitir_token_maquina(nome)` devolve o token (guardado
   só como hash) e `revogar_token_maquina(nome)` o invalida; o agente usa
-  `--token`. O `CONTROL_ROOM_TOKEN` global continua válido.
+  `--token`. O `LAGOA_TOKEN` global continua válido.
 
 - **Cron**: `criar_trigger(processo_id, tipo="cron", expressao="*/15 9-18 * * seg-sex")`
   — 5 campos com `*`, `*/n`, `a-b`, listas e nomes de dia (`seg-sex`).

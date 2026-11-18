@@ -41,7 +41,7 @@ viraram **funções em português** e todo o processo aparece **colorido no term
 9. [Utilidades prontas (+50 funções)](#utilidades-prontas-50-funções)
 10. [Modo dev vs prod (headless)](#modo-dev-vs-prod-headless)
 11. [Rodando no Docker](#rodando-no-docker)
-12. [Control Room (orquestrador)](#control-room-orquestrador)
+12. [Lagoa (orquestrador)](#lagoa-orquestrador)
 13. [Monitor de execuções (trace)](#monitor-de-execuções-trace)
 14. [Testes automatizados](#testes-automatizados)
 15. [Dicas para a comunidade](#dicas-para-a-comunidade)
@@ -82,7 +82,7 @@ capivara/
 │   ├── rpa/                #    browser · dados · arquivo · api · email · banco
 │   │                       #    texto · validacao · seguranca · sistema · notificacoes
 │   ├── monitor/            #    Painel de trace das execuções (SQLite + web local)
-│   ├── control_room/       #    Orquestrador: máquinas, processos, jobs e agente
+│   ├── control_room/       #    Lagoa: máquinas, processos, jobs e agente
 │   ├── logger.py           #    Logging colorido (Loguru)
 │   ├── robo.py             #    Orquestrador dos fluxos
 │   └── tratador.py         #    @passo, @tentar_novamente e exceções
@@ -95,7 +95,7 @@ capivara/
 │   ├── input/              #    Arquivos de entrada dos robôs
 │   ├── output/             #    Resultados gerados
 │   └── logs/               #    Logs do robô (rotação automática)
-├── scripts/                # 🛠️ Helpers: install, run, monitor, control_room
+├── scripts/                # 🛠️ Helpers: install, run, monitor, lagoa
 ├── .env.example
 ├── .gitignore
 ├── Dockerfile
@@ -183,7 +183,7 @@ with Navegador() as navegador:
 
 Instale só o que precisar com os extras: `web` (Selenium), `dados` (pandas),
 `cofre` (criptografia), `pacotes` (zip com senha), `interacao` (pyperclip),
-`control-room`, `all` ou `keyring`. O import da raiz é lazy: quem usa apenas
+`lagoa` (orquestrador de robôs), `all` ou `keyring`. O import da raiz é lazy: quem usa apenas
 `texto`/`validacao` não carrega Selenium nem pandas.
 
 ---
@@ -350,16 +350,16 @@ resultados ficam em `data/output/` dentro do container.
 
 ---
 
-## Control Room (orquestrador)
+## Lagoa (orquestrador)
 
-Um **Orchestrator estilo UiPath**: um painel online onde você cadastra
+Um **orquestrador de robôs**: um painel online onde você cadastra
 **máquinas**, mantém um catálogo de **processos** (seus robôs) e **dispara jobs**
-em máquinas específicas. Os **agentes** instalados em cada máquina fazem o
+em máquinas específicas. Os **agentes** (as capivaras) instalados em cada máquina fazem o
 heartbeat, buscam os jobs e devolvem o resultado — que vira uma *trace* no
 painel de monitoramento.
 
 ```text
-   Control Room (servidor)                 Agente (em cada máquina)
+   Lagoa (servidor)                 Agente (em cada máquina)
   ┌────────────────────────┐   jobs     ┌──────────────────────────┐
   │ máquinas · processos   │ ─────────► │ registra · heartbeat     │
   │ jobs · disparo         │ ◄───────── │ executa fluxo · resultado│
@@ -370,11 +370,11 @@ Tudo com **SQLite + biblioteca padrão** (o agente usa `requests`), sem novas
 dependências.
 
 ```bash
-# 1. Popular com máquinas/processos/jobs de exemplo e subir a Control Room
-bash scripts/control_room.sh --exemplos     # Linux / macOS
-scripts\control_room.bat --exemplos         # Windows
+# 1. Popular com máquinas/processos/jobs de exemplo e subir a Lagoa
+bash scripts/lagoa.sh --exemplos     # Linux / macOS
+scripts\lagoa.bat --exemplos         # Windows
 
-# 2. Abra:  http://localhost:8765            (Control Room)
+# 2. Abra:  http://localhost:8765            (Lagoa)
 #           http://localhost:8765/monitor/   (trace das execuções)
 
 # 3. Simule uma máquina (abra um terminal por máquina)
@@ -392,11 +392,11 @@ No painel: clique em **Executar** num processo (ou “+ Novo job”), escolha a
 máquina (ou “qualquer”), e o agente que estiver livre pega o job. O resultado e
 o passo a passo aparecem na hora — cada job tem link para o seu **trace**.
 
-O painel tem as abas: **Jobs** (Control Room), **Dispositivos**, **Agendamentos**,
+O painel tem as abas: **Jobs** (Lagoa), **Dispositivos**, **Agendamentos**,
 **Automações**, **Filas**, **Assets** e **Acessos** (usuários, papéis e permissões).
 
-- **Login / RBAC (multiempresa)** — por padrão a Control Room é aberta
-  (`CONTROL_ROOM_AUTH=false`, ideal para dev/LAN). Ligue `CONTROL_ROOM_AUTH=true`
+- **Login / RBAC (multiempresa)** — por padrão a Lagoa é aberta
+  (`LAGOA_AUTH=false`, ideal para dev/LAN). Ligue `LAGOA_AUTH=true`
   para exigir login: o primeiro start cria o admin padrão
   (`ADMIN_EMAIL`/`ADMIN_SENHA`, padrão `admin@rpa.local` / `admin` — **troque em
   produção**). A aba **Acessos** gerencia usuários, papéis e permissões
@@ -404,7 +404,7 @@ O painel tem as abas: **Jobs** (Control Room), **Dispositivos**, **Agendamentos*
   cookie `HttpOnly` com validade de `SESSAO_HORAS`.
 
   ```bash
-  CONTROL_ROOM_AUTH=true ADMIN_EMAIL=eu@empresa.com ADMIN_SENHA=segredo \
+  LAGOA_AUTH=true ADMIN_EMAIL=eu@empresa.com ADMIN_SENHA=segredo \
       python -m core.control_room.servidor
   ```
 
@@ -418,7 +418,7 @@ O painel tem as abas: **Jobs** (Control Room), **Dispositivos**, **Agendamentos*
 
 - **Token por máquina** — cada máquina pode ter o seu próprio token (emitido em
   `POST /api/orq/maquinas/<nome>/token` ou na aba Acessos), revogável
-  individualmente. O agente usa com `--token`; o `CONTROL_ROOM_TOKEN` global
+  individualmente. O agente usa com `--token`; o `LAGOA_TOKEN` global
   continua valendo como coringa.
 
 - **Agendamentos (triggers)** — dispare jobs automaticamente por **intervalo**
@@ -431,12 +431,12 @@ O painel tem as abas: **Jobs** (Control Room), **Dispositivos**, **Agendamentos*
 
 - **Automações (pacotes de robô)** — publica um robô pela UI de duas formas:
   - **.zip** — envie um **.zip** com o manifesto `rpa.json` na aba **Automações**
-    e a Control Room extrai em `app/robos/<nome>/` e cadastra o processo no
+    e a Lagoa extrai em `app/robos/<nome>/` e cadastra o processo no
     catálogo automaticamente (senha AES opcional). Dá para **remover** (apaga
     arquivos + catálogo).
   - **repositório Git** — informe a **URL HTTPS pública** de um repo que tenha o
     `rpa.json` na raiz (+ branch/tag opcional) e clique em **Instalar do Git**.
-    A Control Room clona (shallow) e instala igual ao `.zip`; robôs de Git ganham
+    A Lagoa clona (shallow) e instala igual ao `.zip`; robôs de Git ganham
     o botão **Atualizar** (clona de novo e substitui com um clique). Requer o
     `git` instalado na máquina. Só repositórios **públicos** por enquanto.
 
@@ -444,7 +444,7 @@ O painel tem as abas: **Jobs** (Control Room), **Dispositivos**, **Agendamentos*
   `empacotar`, `instalar` e `instalar-git <url> [--ref]`. Exemplo de robô público
   para testar: [`arthurfs11/robo-teste-popup`](https://github.com/arthurfs11/robo-teste-popup).
 
-- **Assets / credenciais (v2)** — guarde segredos na Control Room e busque-os no
+- **Assets / credenciais (v2)** — guarde segredos na Lagoa e busque-os no
   fluxo (sem espalhar senha pelo código). Cada asset tem **tipo** (`segredo` ou
   `texto`), **usuário** opcional, **versão** e histórico. Assets `segredo` são
   **cifrados no banco** (Fernet). A chave vem de `VAULT_CHAVE` (`.env`), do
@@ -480,7 +480,7 @@ O painel tem as abas: **Jobs** (Control Room), **Dispositivos**, **Agendamentos*
   300s) viram alerta (`GET /api/orq/alertas` e faixa de aviso no topo do painel),
   sinalizando robôs travados.
 
-- **Filas / datapool (estilo UiPath Queues)** — crie um *pool de itens* e deixe
+- **Filas / datapool (estilo filas de trabalho)** — crie um *pool de itens* e deixe
   os robôs consumirem um por um, com retry e status:
 
   ```python
@@ -504,7 +504,7 @@ O painel tem as abas: **Jobs** (Control Room), **Dispositivos**, **Agendamentos*
   def meu_fluxo(navegador=None, item=None, agente=None):
       dados_item = item["dados"]   # {"nome": "ACME", "uf": "SP"}
       if agente and agente.cancelado():
-          return False             # job cancelado na Control Room
+          return False             # job cancelado na Lagoa
   ```
 
   Internamente há claim atômico (sem dois agentes pegarem o mesmo item),
@@ -517,7 +517,7 @@ O painel tem as abas: **Jobs** (Control Room), **Dispositivos**, **Agendamentos*
   tela de **detalhe com o trace embutido**.
 
 - **Pacotes de robô (.zip ou Git)** — empacote um robô com um manifesto `rpa.json`
-  e envie para a Control Room, que instala em `app/robos/<nome>/` e já cadastra o
+  e envie para a Lagoa, que instala em `app/robos/<nome>/` e já cadastra o
   processo. Também dá para instalar **direto de um repositório Git público** e
   depois **atualizar** re-clonando:
 
@@ -546,22 +546,22 @@ O painel tem as abas: **Jobs** (Control Room), **Dispositivos**, **Agendamentos*
   em `TEMPLATE/`.
 
 - **Rede + token + TLS** — para rodar agentes em **outras máquinas**, suba a
-  Control Room com `HOST_CONTROL_ROOM=0.0.0.0` (aceita a rede). Se for expor fora
-  de uma rede confiável (VPN/hosted), defina `CONTROL_ROOM_TOKEN` no `.env` do
+  Lagoa com `HOST_LAGOA=0.0.0.0` (aceita a rede). Se for expor fora
+  de uma rede confiável (VPN/hosted), defina `LAGOA_TOKEN` no `.env` do
   servidor **e** em cada agente (`--token` ou a mesma variável), e ligue HTTPS com
-  `--cert`/`--chave` (ou `TLS_CERT`/`TLS_CHAVE`). Sem token, a Control Room fica
+  `--cert`/`--chave` (ou `TLS_CERT`/`TLS_CHAVE`). Sem token, a Lagoa fica
   aberta (ideal para dev/rede local). Só as rotas dos **agentes** (registrar,
   buscar job, reportar execução, ler assets) exigem o token — o painel continua
   acessível no navegador:
 
   ```bash
   # servidor (com token e HTTPS opcional)
-  export HOST_CONTROL_ROOM=0.0.0.0 CONTROL_ROOM_TOKEN="meu-segredo"
+  export HOST_LAGOA=0.0.0.0 LAGOA_TOKEN="meu-segredo"
   python -m core.control_room.servidor --cert data/cert.pem --chave data/chave.pem
 
   # agente em outra máquina (na mesma rede)
   python -m core.control_room.agente --maquina maquina-02 \
-      --control-room https://10.0.0.5:8765 --token "meu-segredo"
+      --lagoa https://10.0.0.5:8765 --token "meu-segredo"
   ```
 
   Para máquinas em redes diferentes, use um **overlay** (Tailscale/ZeroTier) em
@@ -577,9 +577,9 @@ catálogo já vem com dois exemplos.
 > Bancos em `data/orquestrador.db` (máquinas/jobs/triggers/assets/filas e
 > identidade) e `data/monitor.db` (trace), ambos fora do Git. Ajuste porta, host,
 > heartbeat, intervalo dos agendamentos, URL de consumo, token e chave do vault no
-> `.env` (`PORTA_CONTROL_ROOM`, `HOST_CONTROL_ROOM`, `SEGUNDOS_OFFLINE`,
-> `INTERVALO_TRIGGERS`, `CONTROL_ROOM_URL`, `CONTROL_ROOM_TOKEN`, `VAULT_CHAVE`,
-> `CONTROL_ROOM_AUTH`, `ADMIN_EMAIL`, `ADMIN_SENHA`, `SESSAO_HORAS`,
+> `.env` (`PORTA_LAGOA`, `HOST_LAGOA`, `SEGUNDOS_OFFLINE`,
+> `INTERVALO_TRIGGERS`, `LAGOA_URL`, `LAGOA_TOKEN`, `VAULT_CHAVE`,
+> `LAGOA_AUTH`, `ADMIN_EMAIL`, `ADMIN_SENHA`, `SESSAO_HORAS`,
 > `RETENCAO_AUDITORIA_DIAS`, `LIMITE_JOB_SEGUNDOS`).
 
 ### Automações de teste (`bot_test/`)
@@ -590,7 +590,7 @@ falham, demoram ou consomem fila de propósito):
 
 ```bash
 python -m bot_test.registrar          # cadastra os robôs de teste no catálogo
-python -m bot_test.rodar_local todos  # ou rode localmente, sem Control Room
+python -m bot_test.rodar_local todos  # ou rode localmente, sem Lagoa
 ```
 
 Depois é só subir um agente e clicar em **Executar** no painel. Veja o passo a
@@ -598,28 +598,28 @@ passo completo em [`bot_test/README.md`](bot_test/README.md).
 
 ### Instaladores (servidor e agente sem Python)
 
-Para rodar a Control Room (e um agente) numa máquina **sem Python**, gere os
+Para rodar a Lagoa (e um agente) numa máquina **sem Python**, gere os
 binários com **PyInstaller** — ou use os scripts que montam o pacote completo:
 
 ```bash
 pip install pyinstaller
 
 # macOS/Linux: binários soltos
-pyinstaller --noconfirm packaging/control_room.spec   # dist/control_room
+pyinstaller --noconfirm packaging/lagoa.spec   # dist/lagoa
 pyinstaller --noconfirm packaging/agente.spec         # dist/robo_agente
 
 # macOS: pacote "tudo empacotado" (binários + TrackTab + instalador de serviços)
 bash packaging/build_mac.sh                           # dist/RPA-Brasil-macos.zip
 
-# Windows: instalador .exe (Inno Setup) com Control Room + Agente + TrackTab
-iscc packaging/inno_setup.iss                         # dist/instalador/control_room_instalador.exe
+# Windows: instalador .exe (Inno Setup) com Lagoa + Agente + TrackTab
+iscc packaging/inno_setup.iss                         # dist/instalador/lagoa_instalador.exe
 
 # ao rodar um binário, defina onde persistir os dados:
-RPA_PASTA_DADOS="$HOME/.rpa_brasil" ./dist/control_room
+RPA_PASTA_DADOS="$HOME/.rpa_brasil" ./dist/lagoa
 ```
 
 No macOS, o `dist/RPA-Brasil/instalar_mac.sh` copia tudo para `~/RPA Brasil`,
-cria o `.env`/`data/` e instala Control Room **e** agente como serviços
+cria o `.env`/`data/` e instala Lagoa **e** agente como serviços
 (`LaunchAgents`, sobem no login). No Windows, o instalador cria atalhos e
 oferece iniciar o agente junto com o Windows. O workflow
 `.github/workflows/build-instaladores.yml` gera tudo isso no CI a cada tag `v*`.
@@ -689,7 +689,7 @@ monitor.erro_negocio("CPF inválido na linha 42")   # ou .finalizar(...) / .falh
 ## Testes automatizados
 
 Testes de `pytest` cobrem o motor do **monitor** (execuções/passos) e as regras do
-**Control Room** (pools por tag, agendamentos, assets cifrados no vault — com
+**Lagoa** (pools por tag, agendamentos, assets cifrados no vault — com
 tipos, versões, rotação, permissões e auditoria —, filas com retry/claim, pacotes
 `.zip` e claim de jobs). Os testes apontam os bancos para um
 diretório temporário, então **nunca tocam** em `data/*.db`.
@@ -724,7 +724,7 @@ ruff check app core settings tests
 - 📋 **[Catálogo de funções](data/docs/CATALOGO_FUNCOES.md)** — todas as funções low-code com exemplos
 - 🏗️ **[Arquitetura](data/docs/ARQUITETURA.md)** — como os módulos se relacionam e como estender
 - 🌐 **[Rede, token, TLS e VPN](data/docs/REDE.md)** — rodar agentes em outras máquinas com segurança
-- 📦 **[Instaladores](packaging/README.md)** — Control Room/agente sem Python (macOS e Windows) e a extensão TrackTab
+- 📦 **[Instaladores](packaging/README.md)** — Lagoa/agente sem Python (macOS e Windows) e a extensão TrackTab
 
 ---
 

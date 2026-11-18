@@ -1,4 +1,4 @@
-# TEMPLATE — publicar um robô na Control Room
+# TEMPLATE — publicar um robô na Lagoa
 
 Ponto de partida para publicar sua automação na aba **Automações**.
 
@@ -77,8 +77,8 @@ esse comportamento (sempre usar o ambiente do agente), defina
 # 2. empacote (gera meu_robo.zip); --senha cifra o zip com AES
 python -m core.control_room.pacote empacotar TEMPLATE/ --saida meu_robo.zip
 
-# ou envie direto para a Control Room sem gerar arquivo:
-python -m core.control_room.pacote instalar meu_robo.zip --control-room http://127.0.0.1:8765
+# ou envie direto para a Lagoa sem gerar arquivo:
+python -m core.control_room.pacote instalar meu_robo.zip --lagoa http://127.0.0.1:8765
 
 # ou instale de um repositório Git público (com o rpa.json na raiz do repo):
 python -m core.control_room.pacote instalar-git https://github.com/usuario/meu-robo.git --ref main

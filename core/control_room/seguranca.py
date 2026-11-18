@@ -1,4 +1,4 @@
-"""Primitivas de segurança da Control Room.
+"""Primitivas de segurança da Lagoa.
 
 Concentra o que não deve ficar espalhado pelo serviço:
 

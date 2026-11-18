@@ -1,12 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""Gera o binário do Agente de uma máquina (worker da Control Room).
+"""Gera o binário do Agente de uma máquina (worker da Lagoa).
 
 Build:
     pyinstaller --noconfirm packaging/agente.spec
 
-O executável conecta na Control Room (--control-room), registra a máquina,
+O executável conecta na Lagoa (--lagoa), registra a máquina,
 busca jobs/filas e executa os fluxos. Como o agente carrega Robo (Selenium)
-e o motor de dados (pandas), o binário fica maior que o da Control Room.
+e o motor de dados (pandas), o binário fica maior que o da Lagoa.
 
 Obs.: aplica-se a alguém que rode os robôs do próprio projeto/instalados
 na pasta de dados (RPA_PASTA_DADOS/robos); para um orquestrador robusto,

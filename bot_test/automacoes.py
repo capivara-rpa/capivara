@@ -1,7 +1,7 @@
-"""Automações de teste para exercitar a Control Room de ponta a ponta.
+"""Automações de teste para exercitar a Lagoa de ponta a ponta.
 
 Cada função abaixo é um "fluxo" que pode ser cadastrado como processo e
-disparado a partir do painel da Control Room para uma máquina (agente).
+disparado a partir do painel da Lagoa para uma máquina (agente).
 O robô injeta automaticamente os parâmetros que a função declarar:
 
 - ``navegador``: o navegador Selenium (criado pela classe ``Robo``);
@@ -13,7 +13,7 @@ Cadastre os processos com::
     python -m bot_test.registrar
 
 e depois clique em **Executar** no processo desejado, escolhendo a máquina
-(ou deixando "qualquer"). Para ver os logs sem a Control Room::
+(ou deixando "qualquer"). Para ver os logs sem a Lagoa::
 
     python -m bot_test.rodar_local ola_mundo
 """
@@ -45,7 +45,7 @@ def _pasta_saida() -> Path:
 def ola_mundo(navegador=None) -> bool:
     """O robô mais simples possível: registra logs e encerra com sucesso."""
     logger.info(f"Olá! Sou o robô de teste (execução às {_agora()}).")
-    logger.info("Estou rodando a partir de uma máquina da Control Room.")
+    logger.info("Estou rodando a partir de uma máquina da Lagoa.")
     time.sleep(0.5)
     logger.success("Olá mundo concluído sem erros.")
     return True
@@ -121,7 +121,7 @@ def processar_item(navegador=None, agente=None, item=None) -> bool:
 @passo("Abrir pop-up")
 def abrir_popup(
     navegador=None,
-    mensagem: str = "Olá! Sou um robô rodando nesta máquina via Control Room.",
+    mensagem: str = "Olá! Sou um robô rodando nesta máquina via Lagoa.",
     segundos: int = 30,
 ) -> bool:
     """Abre um pop-up nativo (macOS) para confirmar a execução visualmente.
@@ -155,14 +155,14 @@ def abrir_popup(
 
 @passo("Consultar credencial no vault")
 def consultar_credencial(navegador=None, agente=None) -> bool:
-    """Lê uma credencial do vault da Control Room (demonstra o cofre v2)."""
+    """Lê uma credencial do vault da Lagoa (demonstra o cofre v2)."""
     if agente is None:
         logger.warning("Sem agente: rodando localmente, pulando leitura do vault.")
         return True
 
     credencial = agente.credencial("portal")
     if credencial is None:
-        logger.warning("Credencial 'portal' não encontrada. Cadastre na Control Room.")
+        logger.warning("Credencial 'portal' não encontrada. Cadastre na Lagoa.")
         return True
     logger.info(
         f"Credencial do vault: usuario={credencial['usuario']!r} "

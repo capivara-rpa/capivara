@@ -6,7 +6,7 @@ O agente chama este módulo via subprocess quando o robô tem um
     python -m core.control_room.executar_robo <config.json> <resultado.json>
 
 O ``config.json`` traz o fluxo (``pacote.modulo:funcao``), o nome do robô, se
-usa navegador e os dados de acesso à Control Room (URL, token, máquina, job,
+usa navegador e os dados de acesso à Lagoa (URL, token, máquina, job,
 item). O runner executa o fluxo e grava ``{"sucesso": bool, "mensagem": str}``
 no ``resultado.json``.
 

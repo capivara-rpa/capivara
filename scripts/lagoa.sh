@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Sobe a Control Room (orquestrador + painel de trace) - Linux/macOS
-#   scripts/control_room.sh              -> sobe a Control Room
-#   scripts/control_room.sh --exemplos   -> popula máquinas/processos/jobs e sobe
+# Sobe a Lagoa (orquestrador + painel de trace) - Linux/macOS
+#   scripts/lagoa.sh              -> sobe a Lagoa
+#   scripts/lagoa.sh --exemplos   -> popula máquinas/processos/jobs e sobe
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

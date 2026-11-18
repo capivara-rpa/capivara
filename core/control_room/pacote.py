@@ -1,6 +1,6 @@
 """Pacote de robô em .zip (padrão estilo BotCity) com manifesto ``rpa.json``.
 
-Um robô pode ser empacotado e enviado para a Control Room, que o instala
+Um robô pode ser empacotado e enviado para a Lagoa, que o instala
 em ``app/robos/<nome>/`` e o cadastra no catálogo de processos — sem precisar
 editar o projeto manualmente.
 
@@ -26,7 +26,7 @@ Uso::
 
     python -m core.control_room.pacote empacotar minha_pasta_robo/
     python -m core.control_room.pacote empacotar minha_pasta_robo/ --saida meu_robo.zip --senha "srcta"
-    python -m core.control_room.pacote instalar meu_robo.zip             # instala numa Control Room
+    python -m core.control_room.pacote instalar meu_robo.zip             # instala numa Lagoa
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ import requests
 from loguru import logger
 
 from core.control_room import servico
-from settings.parametros import CONTROL_ROOM_URL, PASTA_ROBOS
+from settings.parametros import LAGOA_URL, PASTA_ROBOS
 
 NOME_VALIDO = re.compile(r"^[a-z0-9_-]+$")
 
@@ -396,14 +396,14 @@ def remover(nome: str, pasta_robos: str | None = None) -> dict[str, Any]:
 
 
 # ----------------------------------------------------------------------
-# Enviar para uma Control Room
+# Enviar para uma Lagoa
 # ----------------------------------------------------------------------
 def _enviar(
     arquivo: str | bytes,
     control_room: str | None = None,
     senha: str | None = None,
 ) -> dict[str, Any]:
-    base = (control_room or CONTROL_ROOM_URL).rstrip("/")
+    base = (control_room or LAGOA_URL).rstrip("/")
     dados = arquivo if isinstance(arquivo, bytes) else Path(arquivo).read_bytes()
     url = f"{base}/api/orq/pacotes"
     if senha:
@@ -428,9 +428,16 @@ def main() -> None:
     sub_emp.add_argument("--saida", help="Caminho do .zip gerado (default: <pasta>/<nome>.zip)")
     sub_emp.add_argument("--senha", help="Criptografa o .zip com esta senha")
 
-    sub_inst = sub.add_parser("instalar", help="Instala um .zip numa Control Room")
+    sub_inst = sub.add_parser("instalar", help="Instala um .zip numa Lagoa")
     sub_inst.add_argument("arquivo", help="Caminho do .zip")
-    sub_inst.add_argument("--control-room", default=CONTROL_ROOM_URL, help="URL da Control Room")
+    sub_inst.add_argument(
+        "--lagoa",
+        "--control-room",
+        dest="control_room",
+        metavar="URL",
+        default=LAGOA_URL,
+        help="URL da Lagoa",
+    )
     sub_inst.add_argument("--senha", help="Senha do .zip (se criptografado)")
 
     sub_git = sub.add_parser("instalar-git", help="Instala um robô de um repositório Git público")
@@ -443,7 +450,7 @@ def main() -> None:
         empacotar(opcoes.pasta, opcoes.saida, opcoes.senha)
     elif opcoes.comando == "instalar":
         resultado = _enviar(opcoes.arquivo, opcoes.control_room, opcoes.senha)
-        logger.success(f"Robô '{resultado['nome']}' instalado via Control Room.")
+        logger.success(f"Robô '{resultado['nome']}' instalado via Lagoa.")
     elif opcoes.comando == "instalar-git":
         resultado = instalar_git(opcoes.url, ref=opcoes.ref, pasta_robos=opcoes.pasta_robos)
         logger.success(f"Robô '{resultado['nome']}' instalado de {opcoes.url}.")

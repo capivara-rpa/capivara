@@ -11,7 +11,7 @@ Rotas:
     GET /api/execucoes/<id>    → execução + trace (passos)
     GET /api/ultimos           → últimos passos de todos os robôs
 
-O mesmo ``ManipuladorPainel`` é reaproveitado pela Control Room
+O mesmo ``ManipuladorPainel`` é reaproveitado pela Lagoa
 (``core.control_room.servidor``), que adiciona as rotas de orquestração e
 serve este painel sob o prefixo ``/monitor/``.
 """
@@ -60,7 +60,7 @@ class ManipuladorPainel(BaseHTTPRequestHandler):
     server_version = "MonitorRPA/1.0"
 
     # Lista de (prefixo, pasta). O prefixo "" é a raiz. Subclasses podem
-    # montar vários aplicativos (ex.: Control Room na raiz e monitor em /monitor/).
+    # montar vários aplicativos (ex.: Lagoa na raiz e monitor em /monitor/).
     estaticos: list[tuple[str, Path]] = [("", PASTA_ESTATICO)]
 
     # ------------------------------------------------------------------
@@ -117,7 +117,7 @@ class ManipuladorPainel(BaseHTTPRequestHandler):
     # Push em tempo real (SSE) — sem dependências externas
     # ------------------------------------------------------------------
     def _revisao(self) -> str:
-        """Assinatura do estado; subclasses (Control Room) podem sobrescrever."""
+        """Assinatura do estado; subclasses (Lagoa) podem sobrescrever."""
         return revisao()
 
     def _servir_eventos(self) -> None:

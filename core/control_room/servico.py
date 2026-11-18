@@ -1,4 +1,4 @@
-"""Regras de negócio da Control Room.
+"""Regras de negócio da Lagoa.
 
 Concentra o que o servidor web e os agentes precisam: registro/heartbeat de
 máquinas, catálogo de processos, criação e despacho de jobs.
@@ -149,7 +149,7 @@ def registrar_maquina(
             """,
             (nome, MAQUINA_ONLINE, tags, ip, info, momento, momento),
         )
-    logger.debug(f"[control-room] máquina '{nome}' registrada")
+    logger.debug(f"[lagoa] máquina '{nome}' registrada")
     return obter_maquina_por_nome(nome) or {}
 
 
@@ -215,7 +215,7 @@ def cadastrar_maquina(
             (nome, MAQUINA_OFFLINE, _texto(tags), _texto(info), agora_iso()),
         )
     registrar_auditoria("maquina", recurso=f"maquina:{nome}", ator=ator, detalhe="cadastrada")
-    logger.info(f"[control-room] máquina '{nome}' cadastrada")
+    logger.info(f"[lagoa] máquina '{nome}' cadastrada")
     return next((m for m in listar_maquinas() if m["nome"] == nome), {})
 
 
@@ -235,7 +235,7 @@ def atualizar_maquina(
             (_texto(tags), _texto(info), maquina["id"]),
         )
     registrar_auditoria("maquina", recurso=f"maquina:{nome}", ator=ator, detalhe="atualizada")
-    logger.info(f"[control-room] máquina '{nome}' atualizada")
+    logger.info(f"[lagoa] máquina '{nome}' atualizada")
     return next((m for m in listar_maquinas() if m["nome"] == nome), None)
 
 
@@ -252,7 +252,7 @@ def apagar_maquina(nome: str, ator: str | None = None) -> bool:
             )
         conexao.execute("DELETE FROM maquinas WHERE id = ?", (maquina["id"],))
     registrar_auditoria("maquina", recurso=f"maquina:{nome}", ator=ator, detalhe="removida")
-    logger.info(f"[control-room] máquina '{nome}' removida")
+    logger.info(f"[lagoa] máquina '{nome}' removida")
     return True
 
 
@@ -282,7 +282,7 @@ def criar_processo(
             """,
             (nome, descricao, fluxo, int(usa_navegador), agora_iso(), origem, origem_ref),
         )
-    logger.debug(f"[control-room] processo '{nome}' cadastrado")
+    logger.debug(f"[lagoa] processo '{nome}' cadastrado")
     return next((p for p in _listar_processos_brutos() if p["nome"] == nome), {})
 
 
@@ -310,7 +310,7 @@ def apagar_processo(processo_id: int) -> bool:
             "UPDATE asset_permissoes SET processo_id = NULL WHERE processo_id = ?", (processo_id,)
         )
         conexao.execute("DELETE FROM processos WHERE id = ?", (processo_id,))
-    logger.info(f"[control-room] processo #{processo_id} ({linha['nome']}) removido")
+    logger.info(f"[lagoa] processo #{processo_id} ({linha['nome']}) removido")
     return True
 
 
@@ -338,7 +338,7 @@ def criar_job(
             (processo_id, maquina_id, tag, JOB_PENDENTE, mensagem, agora_iso()),
         )
         job_id = int(cursor.lastrowid or 0)
-    logger.info(f"[control-room] job #{job_id} criado para o processo {processo_id}")
+    logger.info(f"[lagoa] job #{job_id} criado para o processo {processo_id}")
     return obter_job(job_id) or {}
 
 
@@ -361,7 +361,7 @@ def cancelar_job(job_id: int) -> dict[str, Any] | None:
             "UPDATE jobs SET status = ?, finalizado_em = ? WHERE id = ?",
             (JOB_CANCELADO, agora_iso(), job_id),
         )
-    logger.info(f"[control-room] job #{job_id} cancelado (era {job['status']})")
+    logger.info(f"[lagoa] job #{job_id} cancelado (era {job['status']})")
     return obter_job(job_id)
 
 
@@ -412,7 +412,7 @@ def reservar_proximo_job(nome_maquina: str) -> dict[str, Any] | None:
     _definir_status_maquina(maquina["id"], MAQUINA_OCUPADA)
     job = obter_job(int(linha["id"]))
     if job:
-        logger.info(f"[control-room] job #{job['id']} reservado para '{nome_maquina}'")
+        logger.info(f"[lagoa] job #{job['id']} reservado para '{nome_maquina}'")
     return job
 
 
@@ -449,9 +449,9 @@ def concluir_job(job_id: int, sucesso: bool, mensagem: str | None = None) -> dic
         _definir_status_maquina(int(linha["maquina_id"]), MAQUINA_ONLINE)
 
     if cancelado:
-        logger.info(f"[control-room] job #{job_id} encerrado após cancelamento")
+        logger.info(f"[lagoa] job #{job_id} encerrado após cancelamento")
     else:
-        logger.info(f"[control-room] job #{job_id} → {JOB_ROTULO.get(status, status)}")
+        logger.info(f"[lagoa] job #{job_id} → {JOB_ROTULO.get(status, status)}")
     return obter_job(job_id)
 
 
@@ -709,7 +709,7 @@ def criar_trigger(
             ),
         )
         trigger_id = int(cursor.lastrowid or 0)
-    logger.info(f"[control-room] trigger #{trigger_id} criado ({tipo}) → próximo {proxima}")
+    logger.info(f"[lagoa] trigger #{trigger_id} criado ({tipo}) → próximo {proxima}")
     return obter_trigger(trigger_id) or {}
 
 
@@ -720,14 +720,14 @@ def listar_triggers() -> list[dict[str, Any]]:
 def apagar_trigger(trigger_id: int) -> None:
     with conectar() as conexao:
         conexao.execute("DELETE FROM triggers WHERE id = ?", (trigger_id,))
-    logger.info(f"[control-room] trigger #{trigger_id} removido")
+    logger.info(f"[lagoa] trigger #{trigger_id} removido")
 
 
 def definir_trigger_ativo(trigger_id: int, ativo: bool) -> dict[str, Any] | None:
     """Pausa/retoma um agendamento (``ativo = 0/1``)."""
     with conectar() as conexao:
         conexao.execute("UPDATE triggers SET ativo = ? WHERE id = ?", (1 if ativo else 0, trigger_id))
-    logger.info(f"[control-room] trigger #{trigger_id} {'ativado' if ativo else 'pausado'}")
+    logger.info(f"[lagoa] trigger #{trigger_id} {'ativado' if ativo else 'pausado'}")
     return obter_trigger(trigger_id)
 
 
@@ -856,7 +856,7 @@ def expurgar_auditoria(dias: int | None = None) -> int:
         registrar_auditoria(
             "expurgo", recurso="auditoria", detalhe=f"{removidos} evento(s) > {dias} dias"
         )
-        logger.info(f"[control-room] auditoria: {removidos} evento(s) expurgado(s)")
+        logger.info(f"[lagoa] auditoria: {removidos} evento(s) expurgado(s)")
     return removidos
 
 
@@ -1003,7 +1003,7 @@ def criar_asset(
         ator=ator,
         detalhe=f"versao={nova_versao}",
     )
-    logger.debug(f"[control-room] asset '{nome}' salvo (v{nova_versao})")
+    logger.debug(f"[lagoa] asset '{nome}' salvo (v{nova_versao})")
     return _asset_com_valor(nome) or {}
 
 
@@ -1036,7 +1036,7 @@ def rotacionar_asset(
         ator=ator,
         detalhe=f"versao={nova_versao}",
     )
-    logger.info(f"[control-room] asset '{nome}' rotacionado (v{nova_versao})")
+    logger.info(f"[lagoa] asset '{nome}' rotacionado (v{nova_versao})")
     return _asset_com_valor(nome)
 
 
@@ -1156,7 +1156,7 @@ def conceder_permissao(
         ACAO_PERMISSAO, recurso=f"asset:{nome}", ator=ator,
         detalhe=f"processo_id={processo_id} pasta={pasta}",
     )
-    logger.info(f"[control-room] permissão concedida em '{nome}'")
+    logger.info(f"[lagoa] permissão concedida em '{nome}'")
     return {"asset": nome, "processo_id": processo_id, "pasta": pasta}
 
 
@@ -1171,7 +1171,7 @@ def remover_permissao(permissao_id: int, ator: str | None = None) -> None:
     registrar_auditoria(
         ACAO_PERMISSAO, recurso="permissoes", ator=ator, detalhe=f"removido id={permissao_id}"
     )
-    logger.info(f"[control-room] permissão #{permissao_id} removida")
+    logger.info(f"[lagoa] permissão #{permissao_id} removida")
 
 
 def apagar_asset(asset_id: int, ator: str | None = None) -> None:
@@ -1186,11 +1186,11 @@ def apagar_asset(asset_id: int, ator: str | None = None) -> None:
         conexao.execute("DELETE FROM assets WHERE id = ?", (asset_id,))
     if nome:
         registrar_auditoria(ACAO_APAGAR, recurso=f"asset:{nome}", ator=ator)
-    logger.info(f"[control-room] asset #{asset_id} removido")
+    logger.info(f"[lagoa] asset #{asset_id} removido")
 
 
 # ----------------------------------------------------------------------
-# Filas (datapool — estilo UiPath Queues)
+# Filas (datapool — estilo filas de trabalho)
 # ----------------------------------------------------------------------
 def criar_fila(
     nome: str,
@@ -1220,7 +1220,7 @@ def criar_fila(
     fila = obter_fila_por_nome(nome) or {}
     if fila.get("id") and processos is not None:
         definir_processos_fila(fila["id"], processos)
-    logger.info(f"[control-room] fila '{nome}' garantida")
+    logger.info(f"[lagoa] fila '{nome}' garantida")
     resultado = obter_fila_por_nome(nome) or fila
     if resultado.get("id"):
         resultado["processos"] = listar_processos_fila(resultado["id"])
@@ -1246,7 +1246,7 @@ def definir_processos_fila(fila_id: int, processos: list[int]) -> list[dict[str,
             "INSERT INTO fila_processos (fila_id, processo_id) VALUES (?, ?)",
             [(fila_id, pid) for pid in ids],
         )
-    logger.info(f"[control-room] fila #{fila_id}: {len(ids)} processo(s) executor(es)")
+    logger.info(f"[lagoa] fila #{fila_id}: {len(ids)} processo(s) executor(es)")
     return listar_processos_fila(fila_id)
 
 
@@ -1265,14 +1265,14 @@ def apagar_fila(fila_id: int) -> None:
         conexao.execute("DELETE FROM fila_processos WHERE fila_id = ?", (fila_id,))
         conexao.execute("DELETE FROM itens_fila WHERE fila_id = ?", (fila_id,))
         conexao.execute("DELETE FROM filas WHERE id = ?", (fila_id,))
-    logger.info(f"[control-room] fila #{fila_id} removida")
+    logger.info(f"[lagoa] fila #{fila_id} removida")
 
 
 def definir_fila_ativa(fila_id: int, ativo: bool) -> dict[str, Any] | None:
     """Ativa/desativa uma fila. Filas desativadas não entregam novos itens."""
     with conectar() as conexao:
         conexao.execute("UPDATE filas SET ativo = ? WHERE id = ?", (int(ativo), fila_id))
-    logger.info(f"[control-room] fila #{fila_id} {'ativada' if ativo else 'desativada'}")
+    logger.info(f"[lagoa] fila #{fila_id} {'ativada' if ativo else 'desativada'}")
     return obter_fila(fila_id)
 
 
@@ -1304,7 +1304,7 @@ def adicionar_item(
             (fila_id, _json_itens(dados), referencia, int(prioridade), agora_iso(), agora_iso()),
         )
         item_id = int(cursor.lastrowid or 0)
-    logger.info(f"[control-room] item #{item_id} adicionado à fila {fila_id}")
+    logger.info(f"[lagoa] item #{item_id} adicionado à fila {fila_id}")
     return _carregar_dados(obter_item(item_id) or {})
 
 
@@ -1345,7 +1345,7 @@ def adicionar_itens(
                 for item in itens
             ],
         )
-    logger.info(f"[control-room] {len(itens)} item(ns) adicionados à fila {fila_id}")
+    logger.info(f"[lagoa] {len(itens)} item(ns) adicionados à fila {fila_id}")
     return len(itens)
 
 
@@ -1359,7 +1359,7 @@ def definir_prioridade_item(item_id: int, prioridade: int) -> dict[str, Any] | N
             "UPDATE itens_fila SET prioridade = ?, atualizado_em = ? WHERE id = ?",
             (int(prioridade), agora_iso(), item_id),
         )
-    logger.info(f"[control-room] item #{item_id} prioridade → {int(prioridade)}")
+    logger.info(f"[lagoa] item #{item_id} prioridade → {int(prioridade)}")
     return _carregar_dados(obter_item(item_id) or {})
 
 
@@ -1380,7 +1380,7 @@ def reservar_item(nome_fila: str, nome_maquina: str) -> dict[str, Any] | None:
     """Reivindica o próximo item ``novo`` da fila para uma máquina (claim atômico)."""
     fila = obter_fila_por_nome(nome_fila)
     if fila and not fila.get("ativo", 1):
-        logger.info(f"[control-room] fila '{nome_fila}' está desativada")
+        logger.info(f"[lagoa] fila '{nome_fila}' está desativada")
         return None
     maquina = registrar_maquina(nome_maquina) if fila else None
     if not fila or not maquina:
@@ -1409,7 +1409,7 @@ def reservar_item(nome_fila: str, nome_maquina: str) -> dict[str, Any] | None:
     _definir_status_maquina(maquina["id"], MAQUINA_OCUPADA)
     item = obter_item(int(linha["id"]))
     if item:
-        logger.info(f"[control-room] item #{item['id']} reservado para '{nome_maquina}'")
+        logger.info(f"[lagoa] item #{item['id']} reservado para '{nome_maquina}'")
     return _carregar_dados(item) if item else None
 
 
@@ -1498,7 +1498,7 @@ def concluir_item(
     resultado = obter_item(item_id)
     if resultado:
         logger.info(
-            f"[control-room] item #{item_id} → {ITEM_ROTULO.get(status, status)}"
+            f"[lagoa] item #{item_id} → {ITEM_ROTULO.get(status, status)}"
             + (" (retry)" if status == ITEM_NOVO else "")
         )
     return _carregar_dados(resultado) if resultado else None
@@ -1521,7 +1521,7 @@ def abandonar_item(item_id: int, mensagem: str | None = None) -> dict[str, Any] 
         )
     if item["maquina_id"] is not None:
         _definir_status_maquina(int(item["maquina_id"]), MAQUINA_ONLINE)
-    logger.info(f"[control-room] item #{item_id} abandonado")
+    logger.info(f"[lagoa] item #{item_id} abandonado")
     return _carregar_dados(obter_item(item_id) or {})
 
 
@@ -1642,7 +1642,7 @@ def definir_permissoes_papel(nome: str, permissoes: list[str]) -> None:
                     "INSERT OR IGNORE INTO papel_permissoes (papel_id, permissao_id) VALUES (?, ?)",
                     (papel["id"], linha["id"]),
                 )
-    logger.info(f"[control-room] papel '{nome}' com {len(permissoes)} permissão(ões)")
+    logger.info(f"[lagoa] papel '{nome}' com {len(permissoes)} permissão(ões)")
 
 
 def listar_permissoes_do_papel(papel_id: int) -> list[dict[str, Any]]:
@@ -1677,7 +1677,7 @@ def criar_usuario(
         atribuir_papel(usuario["id"], papel)
     if admin:
         atribuir_papel(usuario["id"], PAPEL_ADMIN)
-    logger.info(f"[control-room] usuário '{email}' salvo")
+    logger.info(f"[lagoa] usuário '{email}' salvo")
     return usuario
 
 
@@ -1756,7 +1756,7 @@ def criar_sessao(
             """,
             (usuario["id"], seguranca.hash_token(token), agora_iso(), expira, ip, user_agent),
         )
-    logger.info(f"[control-room] sessão criada para '{usuario.get('email')}'")
+    logger.info(f"[lagoa] sessão criada para '{usuario.get('email')}'")
     return token
 
 
@@ -1814,7 +1814,7 @@ def garantir_admin_padrao() -> None:
     criar_papel(PAPEL_ADMIN, "Acesso total", list(PERMISSOES_PADRAO))
     if obter_usuario_por_email(ADMIN_EMAIL) is None:
         criar_usuario("Administrador", ADMIN_EMAIL, ADMIN_SENHA, papeis=[PAPEL_ADMIN], admin=True)
-        logger.info(f"[control-room] admin padrão criado ({ADMIN_EMAIL})")
+        logger.info(f"[lagoa] admin padrão criado ({ADMIN_EMAIL})")
 
 
 # ----------------------------------------------------------------------
@@ -1833,7 +1833,7 @@ def emitir_token_maquina(nome: str) -> str:
             (seguranca.hash_token(token), nome),
         )
     registrar_auditoria("token", recurso=f"maquina:{nome}", detalhe="emitido")
-    logger.info(f"[control-room] token de máquina emitido para '{nome}'")
+    logger.info(f"[lagoa] token de máquina emitido para '{nome}'")
     return token
 
 
@@ -1841,7 +1841,7 @@ def revogar_token_maquina(nome: str) -> None:
     with conectar() as conexao:
         conexao.execute("UPDATE maquinas SET token_hash = NULL WHERE nome = ?", (nome,))
     registrar_auditoria("token", recurso=f"maquina:{nome}", detalhe="revogado")
-    logger.info(f"[control-room] token de máquina revogado para '{nome}'")
+    logger.info(f"[lagoa] token de máquina revogado para '{nome}'")
 
 
 def validar_token_maquina(token: str | None) -> dict[str, Any] | None:
@@ -1855,7 +1855,7 @@ def validar_token_maquina(token: str | None) -> dict[str, Any] | None:
 # Painel
 # ----------------------------------------------------------------------
 def resumo() -> dict[str, int]:
-    """Contagens para os cartões da Control Room."""
+    """Contagens para os cartões da Lagoa."""
     maquinas = listar_maquinas()
     online = sum(1 for m in maquinas if m["estado"] != MAQUINA_OFFLINE)
     offline = len(maquinas) - online
@@ -1882,7 +1882,7 @@ def resumo() -> dict[str, int]:
 
 
 def montar_painel() -> dict[str, Any]:
-    """Payload completo consumido pela Control Room."""
+    """Payload completo consumido pela Lagoa."""
     return {
         "resumo": resumo(),
         "maquinas": listar_maquinas(),

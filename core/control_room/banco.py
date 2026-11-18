@@ -1,8 +1,8 @@
-"""Persistência da Control Room (SQLite).
+"""Persistência da Lagoa (SQLite).
 
 Três tabelas:
 
-- ``maquinas``: cada máquina/agente que se registra na Control Room.
+- ``maquinas``: cada máquina/agente que se registra na Lagoa.
 - ``processos``: catálogo de robôs executáveis (aponta para um fluxo Python).
 - ``jobs``: cada disparo de um processo numa máquina, com o seu ciclo de vida.
 
@@ -70,7 +70,7 @@ JOB_COR: dict[str, str] = {
 JOB_ENCERRADO: frozenset[str] = frozenset({JOB_CONCLUIDO, JOB_FALHOU, JOB_CANCELADO})
 
 # ----------------------------------------------------------------------
-# Estados dos itens de fila (datapool, estilo UiPath Queues)
+# Estados dos itens de fila (datapool, estilo filas de trabalho)
 # ----------------------------------------------------------------------
 ITEM_NOVO = "novo"
 ITEM_EM_PROCESSAMENTO = "em_processamento"
@@ -341,7 +341,7 @@ _COLUNAS_EXTRA = {
 
 
 def conectar() -> sqlite3.Connection:
-    """Abre conexão com o banco da Control Room (cria a pasta se preciso)."""
+    """Abre conexão com o banco da Lagoa (cria a pasta se preciso)."""
     BANCO_ORQUESTRADOR.parent.mkdir(parents=True, exist_ok=True)
     conexao = sqlite3.connect(BANCO_ORQUESTRADOR, timeout=10)
     conexao.row_factory = sqlite3.Row

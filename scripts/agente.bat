@@ -1,8 +1,8 @@
 @echo off
-REM Roda o agente (runner) da Control Room a partir do codigo-fonte - Windows
+REM Roda o agente (runner) da Lagoa a partir do codigo-fonte - Windows
 REM   scripts\agente.bat
 REM   scripts\agente.bat --maquina meu-pc --tags windows
-REM   scripts\agente.bat --control-room http://10.0.0.5:8765
+REM   scripts\agente.bat --lagoa http://10.0.0.5:8765
 setlocal
 
 set "ROOT=%~dp0.."

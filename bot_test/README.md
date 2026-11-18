@@ -1,9 +1,9 @@
-# bot_test — automações de teste da Control Room
+# bot_test — automações de teste da Lagoa
 
 Pasta com robôs de exemplo para você testar o fluxo completo do orquestrador:
 
 ```
-Control Room (painel)  ──dispara job──►  agente (máquina)  ──roda──►  automação
+Lagoa (painel)  ──dispara job──►  agente (máquina)  ──roda──►  automação
         ▲                                                              │
         └──────────────── trace (logs) no painel ◄─────────────────────┘
 ```
@@ -15,7 +15,7 @@ trace, os status e as máquinas mudando no painel.
 ## 1. Registrar os processos
 
 Com o ambiente ativo (`source .venv/bin/activate`), cadastre os robôs de teste
-no catálogo da Control Room:
+no catálogo da Lagoa:
 
 ```bash
 python -m bot_test.registrar
@@ -31,13 +31,13 @@ duplicar.
 > robôs de teste. Nesse caso, é só rodar `python -m bot_test.registrar`
 > novamente.
 
-## 2. Subir a Control Room
+## 2. Subir a Lagoa
 
 Se ainda não estiver rodando:
 
 ```bash
-scripts/control_room.sh          # Linux / macOS
-scripts\control_room.bat         # Windows
+scripts/lagoa.sh          # Linux / macOS
+scripts\lagoa.bat         # Windows
 ```
 
 Abra <http://localhost:8765>.
@@ -88,7 +88,7 @@ Os itens são processados um a um. O item `Cliente Delta` (UF `RJ`) falha de
 propósito e volta para a fila (**retry**, até 3 tentativas) — veja na aba
 **Filas** do painel.
 
-## 6. Rodar localmente (sem Control Room)
+## 6. Rodar localmente (sem Lagoa)
 
 Para ver só os logs no terminal (e a trace no painel de monitoramento):
 

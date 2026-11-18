@@ -1,10 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""Gera o binário/instalável da Control Room (servidor + monitor + API).
+"""Gera o binário/instalável da Lagoa (servidor + monitor + API).
 
 Build:
-    pyinstaller --noconfirm packaging/control_room.spec
+    pyinstaller --noconfirm packaging/lagoa.spec
 
-Gera um executável único ("onefile") que serve a Control Room na raiz, o
+Gera um executável único ("onefile") que serve a Lagoa na raiz, o
 painel de trace em /monitor e a API /api/*. Crie um .env ao lado do binário
 (ou exporte as variáveis) para portas/chaves personalizadas.
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 
 PROJETO = str(Path(SPECPATH).parent) if "SPECPATH" in globals() else os.getcwd()
 
-# Estáticos servidos pelos dois apps (Control Room e Monitor)
+# Estáticos servidos pelos dois apps (Lagoa e Monitor)
 # Obs.: control_room/servidor.py roda como entry point → seu __file__ fica na
 # raiz do _MEIPASS, então o estático dele é copiado para a raiz "estatico/".
 DATA_ESTATICOS = [
@@ -54,7 +54,7 @@ exe = EXE(
     analyze.binaries,
     analyze.datas,
     [],
-    name="control_room",
+    name="lagoa",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

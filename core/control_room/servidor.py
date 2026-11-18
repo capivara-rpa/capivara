@@ -1,9 +1,9 @@
-"""Servidor web da Control Room (orquestrador).
+"""Servidor web da Lagoa (orquestrador).
 
 Reaproveita o handler do painel de trace (``core.monitor.servidor``) e
 acrescenta:
 
-- o frontend da Control Room na raiz (``/``);
+- o frontend da Lagoa na raiz (``/``);
 - o painel de trace servido em ``/monitor/``;
 - as rotas de orquestração ``/api/orq/...`` (máquinas, processos e jobs).
 
@@ -34,11 +34,11 @@ from core.monitor.servidor import PASTA_ESTATICO as PASTA_MONITOR
 from core.monitor.servidor import ManipuladorPainel, ThreadingHTTPServer, _aplicar_tls
 from settings.parametros import (
     ABRIR_PAINEL,
-    CONTROL_ROOM_AUTH,
-    CONTROL_ROOM_TOKEN,
-    HOST_CONTROL_ROOM,
+    HOST_LAGOA,
     INTERVALO_TRIGGERS,
-    PORTA_CONTROL_ROOM,
+    LAGOA_AUTH,
+    LAGOA_TOKEN,
+    PORTA_LAGOA,
     TLS_CERT,
     TLS_CHAVE,
 )
@@ -82,7 +82,7 @@ def _token_do_pedido(cabecalhos) -> str:
 
 def _token_confere(cabecalhos, esperado: str | None = None) -> bool:
     """Valida o token do pedido. Sem token configurado, libera (dev/rede local)."""
-    esperado = CONTROL_ROOM_TOKEN if esperado is None else esperado
+    esperado = LAGOA_TOKEN if esperado is None else esperado
     if not esperado:
         return True
     return hmac.compare_digest(_token_do_pedido(cabecalhos), esperado)
@@ -115,7 +115,7 @@ _PREFIXOS_SENSIVEIS = (
 
 def _exige_sessao(metodo: str, rota: str) -> bool:
     """Diz se a rota exige um usuário autenticado (só quando o login está ligado)."""
-    if not CONTROL_ROOM_AUTH:
+    if not LAGOA_AUTH:
         return False
     if metodo == "POST":
         return True
@@ -152,9 +152,9 @@ def _permissao_da_rota(metodo: str, rota: str) -> str | None:
 class ManipuladorControlRoom(ManipuladorPainel):
     """Handler do painel + rotas de orquestração."""
 
-    server_version = "ControlRoom/1.0"
+    server_version = "Lagoa/1.0"
 
-    # Control Room na raiz; monitor de trace sob /monitor/
+    # Lagoa na raiz; monitor de trace sob /monitor/
     estaticos: list[tuple[str, Path]] = [("/monitor", PASTA_MONITOR), ("", PASTA_ESTATICO)]
 
     # ------------------------------------------------------------------
@@ -164,17 +164,17 @@ class ManipuladorControlRoom(ManipuladorPainel):
         return servico.validar_sessao(_sessao_do_pedido(self.headers))
 
     def _token_agente_ok(self) -> bool:
-        """Aceita o token global (CONTROL_ROOM_TOKEN) ou o token da máquina.
+        """Aceita o token global (LAGOA_TOKEN) ou o token da máquina.
 
         Quando não há token global nem login obrigatório, as rotas de agente
-        ficam abertas (dev/rede local). Com ``CONTROL_ROOM_AUTH=true`` e sem
+        ficam abertas (dev/rede local). Com ``LAGOA_AUTH=true`` e sem
         token global, o agente precisa de um token de máquina.
         """
         enviado = _token_do_pedido(self.headers)
-        if CONTROL_ROOM_TOKEN:
+        if LAGOA_TOKEN:
             if _token_confere(self.headers):
                 return True
-        elif not CONTROL_ROOM_AUTH and not enviado:
+        elif not LAGOA_AUTH and not enviado:
             return True
         return servico.validar_token_maquina(enviado) is not None
 
@@ -264,7 +264,7 @@ class ManipuladorControlRoom(ManipuladorPainel):
         if rota == "/api/orq/painel":
             self._json(200, servico.montar_painel())
         elif rota == "/api/orq/eu":
-            self._json(200, {"sessao": self._sessao_atual(), "auth": CONTROL_ROOM_AUTH})
+            self._json(200, {"sessao": self._sessao_atual(), "auth": LAGOA_AUTH})
         elif rota == "/api/orq/eventos":
             self._servir_eventos()
         elif rota == "/api/orq/usuarios":
@@ -463,7 +463,7 @@ class ManipuladorControlRoom(ManipuladorPainel):
         except (ValueError, KeyError) as erro:
             self._json(400, {"erro": str(erro)})
         except Exception as erro:  # nunca derrubar a conexão (o browser mostra "Failed to fetch")
-            logger.warning(f"[control-room] falha ao instalar pacote: {erro!r}")
+            logger.warning(f"[lagoa] falha ao instalar pacote: {erro!r}")
             self._json(
                 400,
                 {"erro": "Não foi possível instalar o .zip. Confira se é um arquivo válido "
@@ -487,7 +487,7 @@ class ManipuladorControlRoom(ManipuladorPainel):
         except ValueError as erro:
             self._json(400, {"erro": str(erro)})
         except Exception as erro:  # nunca derrubar a conexão
-            logger.warning(f"[control-room] falha ao instalar robô do Git: {erro!r}")
+            logger.warning(f"[lagoa] falha ao instalar robô do Git: {erro!r}")
             self._json(
                 400,
                 {"erro": "Não foi possível instalar o robô do repositório. "
@@ -975,7 +975,7 @@ def _iniciar_agendador() -> None:
                     servico.limpar_sessoes_expiradas()
                     servico.expurgar_auditoria()
             except Exception as erro:  # noqa: BLE001
-                logger.warning(f"[control-room] erro ao verificar agendamentos: {erro}")
+                logger.warning(f"[lagoa] erro ao verificar agendamentos: {erro}")
             time.sleep(INTERVALO_TRIGGERS)
 
     threading.Thread(target=laco, name="agendador-triggers", daemon=True).start()
@@ -1000,14 +1000,14 @@ def _ips_da_rede() -> list[str]:
     return ips
 
 
-def iniciar_control_room(
-    host: str = HOST_CONTROL_ROOM,
-    porta: int = PORTA_CONTROL_ROOM,
+def iniciar_lagoa(
+    host: str = HOST_LAGOA,
+    porta: int = PORTA_LAGOA,
     abrir_navegador: bool = ABRIR_PAINEL,
     cert: str | None = None,
     chave: str | None = None,
 ) -> None:
-    """Sobe a Control Room (com o monitor em /monitor/) até receber Ctrl+C."""
+    """Sobe a Lagoa (com o monitor em /monitor/) até receber Ctrl+C."""
     iniciar_banco_monitor()
     iniciar_banco_orq()
     servico.garantir_processos_exemplo()
@@ -1019,12 +1019,12 @@ def iniciar_control_room(
     esquema = "https" if _aplicar_tls(servidor, cert, chave) else "http"
     endereco = f"{esquema}://{host}:{porta}"
 
-    logger.success(f"Control Room disponível em {endereco}")
+    logger.success(f"Lagoa disponível em {endereco}")
     logger.info(f"Painel de trace em {endereco}/monitor/")
 
     if host in ("0.0.0.0", "::"):
         for ip in _ips_da_rede():
-            logger.info(f"Runners na rede: --control-room {esquema}://{ip}:{porta}")
+            logger.info(f"Runners na rede: --lagoa {esquema}://{ip}:{porta}")
 
     logger.info("Pressione Ctrl+C para encerrar.")
 
@@ -1034,20 +1034,24 @@ def iniciar_control_room(
     try:
         servidor.serve_forever()
     except KeyboardInterrupt:
-        logger.info("Encerrando a Control Room...")
+        logger.info("Encerrando a Lagoa...")
     finally:
         servidor.server_close()
 
 
+# Compatibilidade: nome antigo da função de subida.
+iniciar_control_room = iniciar_lagoa
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Control Room (orquestrador de robôs).")
+    parser = argparse.ArgumentParser(description="Lagoa (orquestrador de robôs).")
     parser.add_argument(
         "--host",
-        default=HOST_CONTROL_ROOM,
+        default=HOST_LAGOA,
         help="Endereço (default: 127.0.0.1; use 0.0.0.0 p/ a rede)",
     )
     parser.add_argument(
-        "--porta", type=int, default=PORTA_CONTROL_ROOM, help="Porta (default: 8765)"
+        "--porta", type=int, default=PORTA_LAGOA, help="Porta (default: 8765)"
     )
     parser.add_argument(
         "--sem-navegador", action="store_true", help="Não abrir o navegador automaticamente"
@@ -1056,7 +1060,7 @@ def main() -> None:
     parser.add_argument("--chave", default=TLS_CHAVE, help="Chave TLS (PEM) p/ HTTPS")
     opcoes = parser.parse_args()
 
-    iniciar_control_room(
+    iniciar_lagoa(
         host=opcoes.host,
         porta=opcoes.porta,
         abrir_navegador=not opcoes.sem_navegador,
