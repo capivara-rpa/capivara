@@ -144,7 +144,8 @@ const el = {
     loginEmail: document.getElementById("login-email"),
     loginSenha: document.getElementById("login-senha"),
     loginErro: document.getElementById("login-erro"),
-    faixaAlertas: document.getElementById("faixa-alertas"),
+    listaSla: document.getElementById("lista-sla"),
+    slaTotal: document.getElementById("sla-total"),
     btnExpurgar: document.getElementById("btn-expurgar"),
     linkCsv: document.getElementById("link-csv"),
     formMaquina: document.getElementById("form-maquina"),
@@ -186,6 +187,11 @@ function duracao(inicio, fim) {
     const b = fim ? new Date(fim.replace(" ", "T")) : new Date();
     const s = Math.max(0, (b - a) / 1000);
     if (s < 60) return `${s.toFixed(0)}s`;
+    return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+}
+function duracaoSegundos(valor) {
+    const s = Math.max(0, Number(valor) || 0);
+    if (s < 60) return `${Math.round(s)}s`;
     return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 }
 function corJob(status) { return estado.jobInfo[status]?.cor || "#8A8378"; }
@@ -248,7 +254,7 @@ async function carregar() {
         renderAuditoria();
         renderUsuarios();
         renderPapeis();
-        renderAlertas();
+        renderSla();
         preencherProcessosSelects();
         if (estado.visaoAgenda === "calendario") {
             carregarCalendario().catch(() => { /* mantém o último render */ });
@@ -1119,18 +1125,31 @@ function renderPapeis() {
         </tr>`).join("");
 }
 
-function renderAlertas() {
-    if (!el.faixaAlertas) return;
-    const n = estado.alertas.length;
-    el.faixaAlertas.classList.toggle("oculto", n === 0);
-    if (n) {
-        const mostrar = estado.alertas.slice(0, 6).map(
-            (a) => `<span class="tag">#${a.id} ${escapar(a.processo_nome || "")}</span>`
-        ).join(" ");
-        const resto = n > 6 ? ` <span class="obs">+${n - 6} outros</span>` : "";
-        el.faixaAlertas.innerHTML =
-            `<span class="aviso-icone">⚠</span><strong>${n} job(s) acima do tempo limite (SLA)</strong> ${mostrar}${resto}`;
+function renderSla() {
+    if (!el.listaSla) return;
+    const alertas = estado.alertas || [];
+    if (el.slaTotal) {
+        el.slaTotal.textContent = `${alertas.length} job(s)`;
     }
+    if (!alertas.length) {
+        el.listaSla.innerHTML = `<p class="sla-vazio">Nenhum job acima do tempo limite.</p>`;
+        return;
+    }
+    const rotulos = estado.sla?.rotulos || {};
+    const cores = estado.sla?.cores || {};
+    el.listaSla.innerHTML = alertas.map((a) => {
+        const rotulo = rotulos[a.alerta] || "Atenção";
+        const cor = cores[a.alerta] || "#C0392B";
+        const nome = a.processo_nome || "Sem processo";
+        return `
+            <button type="button" class="sla-item" style="--cor:${cor}"
+                    onclick="abrirJob(${Number(a.id)})"
+                    title="${escapar(rotulo)} · ${escapar(nome)}">
+                <span class="sla-id">#${Number(a.id)}</span>
+                <span class="sla-nome">${escapar(nome)}</span>
+                <span class="sla-tempo">${escapar(duracaoSegundos(a.duracao_seg))}</span>
+            </button>`;
+    }).join("");
 }
 
 async function criarUsuario(evento) {
