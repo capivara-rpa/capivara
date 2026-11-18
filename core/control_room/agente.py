@@ -37,6 +37,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import quote
 
@@ -272,11 +273,50 @@ class Agente:
                 caminhos.append(caminho)
         return os.pathsep.join(caminhos)
 
+    @staticmethod
+    def _variaveis_do_job(job: dict) -> dict[str, str]:
+        """Variáveis de ambiente configuradas para a automação do job."""
+        bruto = job.get("processo_variaveis")
+        if not bruto:
+            return {}
+        try:
+            dados = json.loads(bruto) if isinstance(bruto, str) else bruto
+        except (TypeError, ValueError):
+            logger.warning(f"[lagoa] variáveis inválidas no job #{job.get('id')}; ignorando")
+            return {}
+        if not isinstance(dados, dict):
+            return {}
+        return {
+            str(chave): "" if valor is None else str(valor)
+            for chave, valor in dados.items()
+        }
+
+    @contextmanager
+    def _ambiente_com_variaveis(self, variaveis: dict[str, str]):
+        """Aplica variáveis no processo atual e restaura o ambiente ao sair."""
+        anteriores: dict[str, str | None] = {}
+        try:
+            for chave, valor in variaveis.items():
+                anteriores[chave] = os.environ.get(chave)
+                os.environ[chave] = valor
+            yield
+        finally:
+            for chave, valor in anteriores.items():
+                if valor is None:
+                    os.environ.pop(chave, None)
+                else:
+                    os.environ[chave] = valor
+
     def _rodar_no_venv(
-        self, job: dict, python_venv: Path, item: dict | None
+        self,
+        job: dict,
+        python_venv: Path,
+        item: dict | None,
+        variaveis: dict[str, str] | None = None,
     ) -> tuple[bool, str]:
         """Executa o robô num subprocesso usando o ``.venv`` dele."""
         nome = job["processo_nome"]
+        variaveis = variaveis or {}
         config = {
             "fluxo": job["fluxo"],
             "nome": nome,
@@ -288,6 +328,7 @@ class Agente:
             "maquina": self.maquina,
         }
         amb = os.environ.copy()
+        amb.update(variaveis)
         amb["PYTHONPATH"] = self._pythonpath()
         amb["PYTHONUNBUFFERED"] = "1"
 
@@ -332,15 +373,21 @@ class Agente:
 
         sucesso = False
         mensagem = ""
+        variaveis = self._variaveis_do_job(job)
+        if variaveis:
+            logger.info(
+                f"[ambiente] {len(variaveis)} variável(is) de ambiente aplicada(s) ao job #{job['id']}"
+            )
         try:
             python_venv = self._ambiente_do_robo(nome)
             if python_venv is not None:
-                sucesso, mensagem = self._rodar_no_venv(job, python_venv, item)
+                sucesso, mensagem = self._rodar_no_venv(job, python_venv, item, variaveis)
             else:
                 funcao = resolver_fluxo(job["fluxo"])
                 if job.get("usa_navegador"):
                     robo.iniciar()
-                sucesso = robo.executar_fluxo(nome, funcao, agente=self, item=item)
+                with self._ambiente_com_variaveis(variaveis):
+                    sucesso = robo.executar_fluxo(nome, funcao, agente=self, item=item)
         except Exception as erro:  # noqa: BLE001
             mensagem = f"Erro no agente: {erro}"
             logger.error(mensagem)

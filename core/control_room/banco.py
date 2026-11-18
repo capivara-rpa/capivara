@@ -336,6 +336,7 @@ _COLUNAS_EXTRA = {
     "processos": [
         ("origem", "TEXT"),
         ("origem_ref", "TEXT"),
+        ("variaveis", "TEXT"),
     ],
 }
 
@@ -424,6 +425,7 @@ SELECT j.*,
        p.nome  AS processo_nome,
        p.fluxo AS fluxo,
        p.usa_navegador AS usa_navegador,
+       p.variaveis AS processo_variaveis,
        m.nome  AS maquina_nome
   FROM jobs j
   LEFT JOIN processos p ON p.id = j.processo_id

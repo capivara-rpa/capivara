@@ -116,6 +116,24 @@
 
             <section class="resumo" id="resumo" aria-label="Resumo"></section>
 
+            <section class="desempenho oculto" id="painel-desempenho" aria-label="Desempenho">
+                <article class="cartao taxa-sucesso">
+                    <div class="taxa-anel" id="taxa-anel"><span id="taxa-valor">0%</span></div>
+                    <div class="taxa-texto">
+                        <h3>Taxa de sucesso</h3>
+                        <p id="taxa-detalhe">Nenhuma execução finalizada.</p>
+                    </div>
+                </article>
+                <article class="cartao grafico-card">
+                    <div class="grafico-topo">
+                        <h3>Execuções · últimos 7 dias</h3>
+                        <span id="grafico-total">0 execuções</span>
+                    </div>
+                    <div class="grafico-legenda" id="grafico-legenda"></div>
+                    <div class="grafico" id="grafico-execucoes"></div>
+                </article>
+            </section>
+
             <div class="main-grid">
                 <div class="painel-principal">
                     <div class="card">
@@ -164,6 +182,10 @@
                             <div class="painel-aba oculto" id="aba-agendamentos">
                                 <div class="barra-acoes">
                                     <button type="button" class="botao-primario" id="btn-novo-trigger">+ Novo agendamento</button>
+                                    <div class="segmentado" role="group" aria-label="Visualização dos agendamentos">
+                                        <button type="button" class="botao-secundario ativo" id="btn-agenda-lista">Lista</button>
+                                        <button type="button" class="botao-secundario" id="btn-agenda-calendario">Calendário</button>
+                                    </div>
                                     <span class="dica">Disparos automáticos por intervalo, horário ou cron.</span>
                                 </div>
 
@@ -225,7 +247,18 @@
                                     </div>
                                 </form>
 
-                                <div class="tabela-envolucro">
+                                <div class="calendario oculto" id="calendario">
+                                    <div class="calendario-topo">
+                                        <button type="button" class="botao-secundario" id="cal-prev" title="Mês anterior">‹</button>
+                                        <h3 id="calendario-titulo">—</h3>
+                                        <button type="button" class="botao-secundario" id="cal-hoje">Hoje</button>
+                                        <button type="button" class="botao-secundario" id="cal-next" title="Próximo mês">›</button>
+                                    </div>
+                                    <div class="calendario-legenda" id="calendario-legenda"></div>
+                                    <div class="calendario-grade" id="calendario-grade"></div>
+                                </div>
+
+                                <div class="tabela-envolucro" id="tabela-triggers">
                                     <table class="tabela">
                                         <thead>
                                             <tr><th>#</th><th>Automação</th><th>Onde</th><th>Quando</th>
@@ -257,7 +290,7 @@
                                     <table class="tabela">
                                         <thead>
                                             <tr><th>Automação</th><th>Descrição</th><th>Fluxo</th>
-                                                <th>Navegador</th><th>Origem</th><th>Ações</th></tr>
+                                                <th>Navegador</th><th>Origem</th><th>Env</th><th>Ações</th></tr>
                                         </thead>
                                         <tbody id="corpo-automacoes"></tbody>
                                     </table>
@@ -423,6 +456,21 @@
             <p class="erro-login" id="login-erro"></p>
             <div class="modal-acoes">
                 <button type="submit" class="botao-primario">Entrar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="dialog-variaveis" class="modal">
+        <form method="dialog" id="form-variaveis">
+            <h3>Variáveis de ambiente · <span id="variaveis-processo">—</span></h3>
+            <p class="dica">Uma por linha no formato <code>CHAVE=valor</code>. Elas ficam disponíveis
+                para o robô via <code>os.environ</code> em todas as execuções desta automação.</p>
+            <textarea id="variaveis-texto" rows="10" spellcheck="false"
+                placeholder="API_URL=https://exemplo.com&#10;AMBIENTE=producao"></textarea>
+            <p class="erro-login" id="variaveis-erro"></p>
+            <div class="modal-acoes">
+                <button type="button" class="botao-secundario" id="variaveis-cancelar">Cancelar</button>
+                <button type="submit" class="botao-primario">Salvar</button>
             </div>
         </form>
     </dialog>

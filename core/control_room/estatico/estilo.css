@@ -1365,3 +1365,251 @@ button.nav-link {
     padding: 3px 6px;
     text-align: center;
 }
+
+/* ===== Dashboard: taxa de sucesso + gráfico ===== */
+.desempenho {
+    display: grid;
+    grid-template-columns: minmax(250px, 0.8fr) minmax(0, 2fr);
+    gap: 16px;
+}
+.desempenho .cartao { padding: 18px 20px; }
+.taxa-sucesso {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+.taxa-anel {
+    --pct: 0;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: conic-gradient(var(--primary) calc(var(--pct) * 1%), var(--card-border) 0);
+    display: grid;
+    place-items: center;
+    position: relative;
+    flex: 0 0 auto;
+}
+.taxa-anel::before {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border-radius: 50%;
+    background: var(--card-bg);
+}
+.taxa-anel span {
+    position: relative;
+    z-index: 1;
+    font-size: 23px;
+    font-weight: 700;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: var(--text-primary);
+}
+.taxa-texto h3 { font-size: 14px; margin-bottom: 4px; }
+.taxa-texto p { font-size: 12px; color: var(--text-secondary); }
+.grafico-card { display: flex; flex-direction: column; gap: 8px; }
+.grafico-topo {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+.grafico-topo h3 { font-size: 14px; }
+.grafico-topo span { font-size: 12px; color: var(--text-secondary); }
+.grafico-legenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+.grafico-legenda span { display: inline-flex; align-items: center; gap: 5px; }
+.grafico-legenda i {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    background: var(--cor);
+    display: inline-block;
+}
+.grafico {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    height: 158px;
+    padding-top: 6px;
+}
+.grafico-dia {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+.grafico-barras {
+    width: 100%;
+    max-width: 44px;
+    height: 126px;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 2px;
+}
+.grafico-seg {
+    width: 100%;
+    min-height: 0;
+    border-radius: 3px 3px 0 0;
+    background: var(--cor);
+    transition: height 0.3s ease;
+}
+.grafico-rotulo {
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.grafico-vazio {
+    height: 126px;
+    display: grid;
+    place-items: center;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+/* ===== Agendamentos: alternância lista/calendário ===== */
+.segmentado {
+    display: inline-flex;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--card-border);
+    border-radius: 999px;
+    background: var(--bg);
+}
+.segmentado .botao-secundario {
+    border: none;
+    background: transparent;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.segmentado .botao-secundario.ativo {
+    background: var(--primary);
+    color: #fff;
+}
+.calendario {
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    background: var(--card-bg);
+    padding: 16px;
+    margin: 8px 0 16px;
+}
+.calendario-topo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.calendario-topo h3 {
+    flex: 0 1 220px;
+    text-align: center;
+    font-size: 15px;
+}
+.calendario-legenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+.calendario-legenda span { display: inline-flex; align-items: center; gap: 5px; }
+.calendario-legenda i {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    background: var(--cor);
+}
+.calendario-grade {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+}
+.cal-dia-semana {
+    text-align: center;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    padding: 4px 0;
+}
+.cal-dia {
+    min-height: 96px;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: var(--bg);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow: hidden;
+}
+.cal-dia.fora { opacity: 0.35; }
+.cal-dia.hoje {
+    border-color: var(--primary);
+    box-shadow: inset 0 0 0 1px var(--primary);
+}
+.cal-numero {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    line-height: 1;
+}
+.cal-evento {
+    --cor: var(--info);
+    border: none;
+    border-left: 3px solid var(--cor);
+    background: color-mix(in srgb, var(--cor) 15%, transparent);
+    color: var(--text-primary);
+    border-radius: 4px;
+    padding: 3px 5px;
+    font-size: 10.5px;
+    line-height: 1.25;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.cal-evento:hover { filter: brightness(0.96); }
+.cal-mais { font-size: 10px; color: var(--text-secondary); padding-left: 2px; }
+
+/* ===== Variáveis de ambiente ===== */
+.modal textarea {
+    width: 100%;
+    min-height: 180px;
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text-primary);
+    background: var(--card-bg);
+    resize: vertical;
+}
+.modal textarea:focus {
+    outline: none;
+    border-color: rgba(31, 164, 99, 0.8);
+    box-shadow: 0 0 0 3px rgba(31, 164, 99, 0.12);
+}
+
+@media (max-width: 1000px) {
+    .desempenho { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+    .cal-dia { min-height: 72px; padding: 4px; }
+    .cal-evento { font-size: 9px; padding: 2px 3px; }
+    .calendario { padding: 10px; }
+    .calendario-topo h3 { flex-basis: 150px; font-size: 13px; }
+}

@@ -7,6 +7,7 @@ máquinas, catálogo de processos, criação e despacho de jobs.
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -106,6 +107,71 @@ PROCESSOS_EXEMPLO = [
 def _texto(valor: str | None) -> str | None:
     texto = (valor or "").strip()
     return texto or None
+
+
+_VARIAVEL_CHAVE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _normalizar_variaveis(variaveis: Any) -> dict[str, str]:
+    """Valida variáveis de ambiente (dict ou texto ``CHAVE=valor``)."""
+    if variaveis is None:
+        return {}
+    if isinstance(variaveis, str):
+        texto = variaveis.strip()
+        if not texto:
+            return {}
+        if texto.startswith("{"):
+            try:
+                return _normalizar_variaveis(json.loads(texto))
+            except json.JSONDecodeError as erro:
+                raise ValueError("As variáveis não formam um JSON válido.") from erro
+        dados: dict[str, Any] = {}
+        for numero, linha in enumerate(texto.splitlines(), start=1):
+            linha = linha.strip()
+            if not linha or linha.startswith("#"):
+                continue
+            if "=" not in linha:
+                raise ValueError(f"Linha {numero}: use o formato CHAVE=valor.")
+            chave, valor = linha.split("=", 1)
+            dados[chave.strip()] = valor.strip()
+        return _normalizar_variaveis(dados)
+    if not isinstance(variaveis, dict):
+        raise ValueError("Envie as variáveis como objeto JSON ou texto CHAVE=valor.")
+    if len(variaveis) > 100:
+        raise ValueError("Limite de 100 variáveis por automação.")
+    dados = {}
+    for chave, valor in variaveis.items():
+        chave = str(chave).strip()
+        if not _VARIAVEL_CHAVE.match(chave):
+            raise ValueError(
+                f"Variável inválida: {chave!r}. Use letras, números e _ (sem começar por número)."
+            )
+        if len(chave) > 100:
+            raise ValueError("O nome da variável deve ter no máximo 100 caracteres.")
+        texto_valor = "" if valor is None else str(valor)
+        if len(texto_valor) > 4096:
+            raise ValueError(f"O valor de {chave} deve ter no máximo 4096 caracteres.")
+        dados[chave] = texto_valor
+    return dados
+
+
+def _carregar_variaveis(bruto: Any) -> dict[str, str]:
+    """Lê as variáveis persistidas (JSON) sem derrubar o painel se houver lixo."""
+    if not bruto:
+        return {}
+    try:
+        return _normalizar_variaveis(json.loads(bruto) if isinstance(bruto, str) else bruto)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        logger.warning("[lagoa] variáveis de ambiente inválidas no banco; ignorando")
+        return {}
+
+
+def _processo_publico(processo: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not processo:
+        return processo
+    dados = dict(processo)
+    dados["variaveis"] = _carregar_variaveis(dados.get("variaveis"))
+    return dados
 
 
 def _idade_segundos(instante: str | None) -> float:
@@ -283,11 +349,46 @@ def criar_processo(
             (nome, descricao, fluxo, int(usa_navegador), agora_iso(), origem, origem_ref),
         )
     logger.debug(f"[lagoa] processo '{nome}' cadastrado")
-    return next((p for p in _listar_processos_brutos() if p["nome"] == nome), {})
+    processo = next((p for p in _listar_processos_brutos() if p["nome"] == nome), {})
+    return _processo_publico(processo) or {}
 
 
 def listar_processos() -> list[dict[str, Any]]:
-    return _listar_processos_brutos()
+    return [_processo_publico(p) or {} for p in _listar_processos_brutos()]
+
+
+def obter_variaveis_processo(processo_id: int) -> dict[str, str] | None:
+    """Variáveis de ambiente configuradas para uma automação."""
+    processo = obter_processo(processo_id)
+    if processo is None:
+        return None
+    return _carregar_variaveis(processo.get("variaveis"))
+
+
+def definir_variaveis_processo(
+    processo_id: int,
+    variaveis: Any,
+    ator: str | None = None,
+) -> dict[str, str] | None:
+    """Substitui as variáveis de ambiente de uma automação."""
+    dados = _normalizar_variaveis(variaveis)
+    processo = obter_processo(processo_id)
+    if processo is None:
+        return None
+    bruto = json.dumps(dados, ensure_ascii=False) if dados else None
+    with conectar() as conexao:
+        conexao.execute(
+            "UPDATE processos SET variaveis = ? WHERE id = ?",
+            (bruto, processo_id),
+        )
+    registrar_auditoria(
+        "processo",
+        recurso=f"processo:{processo_id}",
+        ator=ator,
+        detalhe=f"{len(dados)} variável(is) de ambiente",
+    )
+    logger.info(f"[lagoa] {len(dados)} variável(is) salva(s) no processo #{processo_id}")
+    return dados
 
 
 def garantir_processos_exemplo() -> None:
@@ -1854,8 +1955,76 @@ def validar_token_maquina(token: str | None) -> dict[str, Any] | None:
 # ----------------------------------------------------------------------
 # Painel
 # ----------------------------------------------------------------------
-def resumo() -> dict[str, int]:
-    """Contagens para os cartões da Lagoa."""
+def _historico_jobs(dias: int = 7) -> list[dict[str, Any]]:
+    """Execuções por dia/status nos últimos ``dias`` (inclui hoje)."""
+    hoje = datetime.now().date()
+    inicio = hoje - timedelta(days=max(1, dias) - 1)
+    por_dia: dict[str, dict[str, int]] = {}
+    with conectar() as conexao:
+        linhas = conexao.execute(
+            """
+            SELECT substr(COALESCE(iniciado_em, criado_em), 1, 10) AS dia,
+                   status,
+                   COUNT(*) AS total
+              FROM jobs
+             WHERE substr(COALESCE(iniciado_em, criado_em), 1, 10) >= ?
+             GROUP BY dia, status
+            """,
+            (inicio.isoformat(),),
+        ).fetchall()
+    for linha in linhas:
+        por_dia.setdefault(linha["dia"], {})[linha["status"]] = linha["total"]
+
+    historico = []
+    for indice in range(max(1, dias)):
+        data = inicio + timedelta(days=indice)
+        chave = data.isoformat()
+        contagem = por_dia.get(chave, {})
+        item = {
+            "data": chave,
+            "rotulo": data.strftime("%d/%m"),
+            "total": sum(contagem.values()),
+            "concluido": contagem.get(JOB_CONCLUIDO, 0),
+            "falhou": contagem.get(JOB_FALHOU, 0),
+            "cancelado": contagem.get(JOB_CANCELADO, 0),
+            "em_execucao": contagem.get(JOB_EM_EXECUCAO, 0),
+            "pendente": contagem.get(JOB_PENDENTE, 0),
+        }
+        historico.append(item)
+    return historico
+
+
+def listar_calendario(ano: int, mes: int) -> dict[str, Any]:
+    """Execuções de um mês para o calendário de agendamentos."""
+    if not 1 <= mes <= 12:
+        raise ValueError("Mês inválido.")
+    inicio = datetime(ano, mes, 1)
+    fim = datetime(ano + (mes == 12), (mes % 12) + 1, 1)
+    with conectar() as conexao:
+        linhas = conexao.execute(
+            """
+            SELECT j.*,
+                   p.nome AS processo_nome,
+                   m.nome AS maquina_nome
+              FROM jobs j
+              LEFT JOIN processos p ON p.id = j.processo_id
+              LEFT JOIN maquinas  m ON m.id = j.maquina_id
+             WHERE substr(COALESCE(j.iniciado_em, j.criado_em), 1, 10) >= ?
+               AND substr(COALESCE(j.iniciado_em, j.criado_em), 1, 10) < ?
+             ORDER BY COALESCE(j.iniciado_em, j.criado_em), j.id
+            """,
+            (inicio.date().isoformat(), fim.date().isoformat()),
+        ).fetchall()
+    eventos = []
+    for linha in linhas:
+        dados = dict(linha)
+        dados["data"] = (dados.get("iniciado_em") or dados.get("criado_em") or "")[:10]
+        eventos.append(dados)
+    return {"ano": ano, "mes": mes, "eventos": eventos}
+
+
+def resumo() -> dict[str, Any]:
+    """Contagens e desempenho para os cartões da Lagoa."""
     maquinas = listar_maquinas()
     online = sum(1 for m in maquinas if m["estado"] != MAQUINA_OFFLINE)
     offline = len(maquinas) - online
@@ -1868,6 +2037,10 @@ def resumo() -> dict[str, int]:
             if linha["status"] in contagem:
                 contagem[linha["status"]] = linha["total"]
 
+    finalizados = contagem[JOB_CONCLUIDO] + contagem[JOB_FALHOU]
+    taxa_sucesso = round((contagem[JOB_CONCLUIDO] / finalizados) * 100, 1) if finalizados else 0.0
+    historico = _historico_jobs(7)
+
     return {
         "maquinas_online": online,
         "maquinas_offline": offline,
@@ -1878,6 +2051,10 @@ def resumo() -> dict[str, int]:
         "falhas": contagem[JOB_FALHOU],
         "cancelados": contagem[JOB_CANCELADO],
         "jobs_total": sum(contagem.values()),
+        "finalizados": finalizados,
+        "taxa_sucesso": taxa_sucesso,
+        "historico": historico,
+        "execucoes_7d": sum(item["total"] for item in historico),
     }
 
 
@@ -1945,6 +2122,8 @@ def revisao() -> str:
               (SELECT GROUP_CONCAT(id || ':' || status, '|')
                  FROM (SELECT id, status FROM itens_fila ORDER BY id)) AS is_,
               (SELECT COUNT(*) FROM processos) AS npr,
+              (SELECT COALESCE(GROUP_CONCAT(id || ':' || COALESCE(variaveis, ''), '|'), '')
+                 FROM (SELECT id, variaveis FROM processos ORDER BY id)) AS pv,
               (SELECT COUNT(*) FROM assets) AS na,
               (SELECT COALESCE(GROUP_CONCAT(nome || ':' || versao, '|'), '')
                  FROM (SELECT nome, versao FROM assets ORDER BY id)) AS av,
@@ -1971,6 +2150,9 @@ __all__ = [
     "apagar_maquina",
     "criar_processo",
     "listar_processos",
+    "obter_variaveis_processo",
+    "definir_variaveis_processo",
+    "listar_calendario",
     "garantir_processos_exemplo",
     "criar_job",
     "cancelar_job",

@@ -29,10 +29,36 @@ const estado = {
     tokenNovo: null,
     filtroItem: "todos",
     jobAberto: null,
+    visaoAgenda: "lista",
+    calendario: { ano: new Date().getFullYear(), mes: new Date().getMonth() + 1, eventos: [] },
+    processoVariaveis: null,
 };
 
 const el = {
     resumo: document.getElementById("resumo"),
+    painelDesempenho: document.getElementById("painel-desempenho"),
+    taxaAnel: document.getElementById("taxa-anel"),
+    taxaValor: document.getElementById("taxa-valor"),
+    taxaDetalhe: document.getElementById("taxa-detalhe"),
+    grafico: document.getElementById("grafico-execucoes"),
+    graficoLegenda: document.getElementById("grafico-legenda"),
+    graficoTotal: document.getElementById("grafico-total"),
+    btnAgendaLista: document.getElementById("btn-agenda-lista"),
+    btnAgendaCalendario: document.getElementById("btn-agenda-calendario"),
+    calendario: document.getElementById("calendario"),
+    tabelaTriggers: document.getElementById("tabela-triggers"),
+    calendarioTitulo: document.getElementById("calendario-titulo"),
+    calendarioLegenda: document.getElementById("calendario-legenda"),
+    calendarioGrade: document.getElementById("calendario-grade"),
+    calPrev: document.getElementById("cal-prev"),
+    calNext: document.getElementById("cal-next"),
+    calHoje: document.getElementById("cal-hoje"),
+    dialogVariaveis: document.getElementById("dialog-variaveis"),
+    formVariaveis: document.getElementById("form-variaveis"),
+    variaveisProcesso: document.getElementById("variaveis-processo"),
+    variaveisTexto: document.getElementById("variaveis-texto"),
+    variaveisErro: document.getElementById("variaveis-erro"),
+    variaveisCancelar: document.getElementById("variaveis-cancelar"),
     maquinas: document.getElementById("lista-maquinas"),
     processos: document.getElementById("lista-processos"),
     jobs: document.getElementById("corpo-jobs"),
@@ -208,6 +234,7 @@ async function carregar() {
         marcarConexao(true);
         renderAuth();
         renderResumo(dados.resumo);
+        renderDesempenho(dados.resumo);
         renderMaquinas();
         renderDispositivos();
         renderProcessos();
@@ -223,6 +250,9 @@ async function carregar() {
         renderPapeis();
         renderAlertas();
         preencherProcessosSelects();
+        if (estado.visaoAgenda === "calendario") {
+            carregarCalendario().catch(() => { /* mantém o último render */ });
+        }
         if (estado.jobAberto && el.dialogJob.open) {
             atualizarJob(estado.jobAberto).catch(() => { /* ignora */ });
         }
@@ -307,6 +337,62 @@ function renderResumo(r) {
             <div class="valor" style="color:${c.cor}">${c.v ?? 0}</div>
             <div class="rotulo">${c.rot}</div>
         </div>`).join("");
+}
+
+// ---------- desempenho ----------
+function renderDesempenho(r) {
+    if (!el.painelDesempenho) return;
+    const taxa = Math.max(0, Math.min(100, Number(r?.taxa_sucesso || 0)));
+    const finalizados = Number(r?.finalizados || 0);
+    const historico = Array.isArray(r?.historico) ? r.historico : [];
+    const total7d = Number(r?.execucoes_7d || 0);
+
+    if (el.taxaAnel) el.taxaAnel.style.setProperty("--pct", taxa);
+    if (el.taxaValor) el.taxaValor.textContent = `${taxa.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+    if (el.taxaDetalhe) {
+        el.taxaDetalhe.textContent = finalizados
+            ? `${Number(r?.concluidos || 0)} concluído(s) de ${finalizados} finalizado(s).`
+            : "Nenhuma execução finalizada ainda.";
+    }
+    if (el.graficoTotal) {
+        el.graficoTotal.textContent = `${total7d} execu\u00e7\u00e3o(\u00f5es) nos \u00faltimos 7 dias`;
+    }
+
+    const statuses = [
+        { chave: "concluido", rotulo: "Concluídos", cor: "#1FA463" },
+        { chave: "falhou", rotulo: "Falhas", cor: "#C0392B" },
+        { chave: "cancelado", rotulo: "Cancelados", cor: "#8A8378" },
+        { chave: "em_execucao", rotulo: "Em execução", cor: "#1F5FD1" },
+        { chave: "pendente", rotulo: "Pendentes", cor: "#E0A400" },
+    ];
+    if (el.graficoLegenda) {
+        const totais = {};
+        historico.forEach((dia) => {
+            statuses.forEach((s) => { totais[s.chave] = (totais[s.chave] || 0) + Number(dia[s.chave] || 0); });
+        });
+        el.graficoLegenda.innerHTML = statuses.map((s) => `
+            <span><i style="--cor:${s.cor}"></i>${s.rotulo} (${totais[s.chave] || 0})</span>`).join("");
+    }
+    if (!el.grafico) return;
+    if (!historico.length) {
+        el.grafico.innerHTML = `<p class="grafico-vazio">Sem execuções no período.</p>`;
+        return;
+    }
+    const maximo = Math.max(1, ...historico.map((dia) => Number(dia.total || 0)));
+    el.grafico.innerHTML = historico.map((dia) => {
+        const total = Number(dia.total || 0);
+        const segmentos = statuses.map((s) => {
+            const quantidade = Number(dia[s.chave] || 0);
+            if (!quantidade) return "";
+            const altura = Math.max(2, Math.round((quantidade / maximo) * 100));
+            return `<div class="grafico-seg" style="--cor:${s.cor};height:${altura}%" title="${s.rotulo}: ${quantidade}"></div>`;
+        }).join("");
+        return `
+            <div class="grafico-dia" title="${escapar(dia.data)}: ${total} execução(ões)">
+                <div class="grafico-barras">${segmentos}</div>
+                <span class="grafico-rotulo">${escapar(dia.rotulo || "")}</span>
+            </div>`;
+    }).join("");
 }
 
 // ---------- máquinas ----------
@@ -590,6 +676,8 @@ function trocarAba(aba) {
     document.querySelectorAll(".aba").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === aba));
     document.querySelectorAll(".painel-aba").forEach((p) => p.classList.toggle("oculto", p.id !== `aba-${aba}`));
     el.filtros.classList.toggle("oculto", aba !== "jobs");
+    if (el.painelDesempenho) el.painelDesempenho.classList.toggle("oculto", aba !== "jobs");
+    if (aba === "agendamentos") aplicarVisaoAgenda();
     const lateral = document.querySelector(".painel-lateral");
     if (lateral) lateral.classList.toggle("oculto", aba === "monitor");
     if (aba === "monitor") {
@@ -606,6 +694,110 @@ function trocarAba(aba) {
 }
 
 // ---------- agendamentos ----------
+function aplicarVisaoAgenda() {
+    const calendario = estado.visaoAgenda === "calendario";
+    if (el.calendario) el.calendario.classList.toggle("oculto", !calendario);
+    if (el.tabelaTriggers) el.tabelaTriggers.classList.toggle("oculto", calendario);
+    if (el.btnAgendaLista) el.btnAgendaLista.classList.toggle("ativo", !calendario);
+    if (el.btnAgendaCalendario) el.btnAgendaCalendario.classList.toggle("ativo", calendario);
+    if (calendario) carregarCalendario().catch(() => { /* mantém o último render */ });
+}
+
+function mudarVisaoAgenda(visao) {
+    estado.visaoAgenda = visao === "calendario" ? "calendario" : "lista";
+    aplicarVisaoAgenda();
+}
+
+async function carregarCalendario() {
+    const { ano, mes } = estado.calendario;
+    const dados = await buscarJSON(`/api/orq/calendario?ano=${ano}&mes=${mes}`);
+    estado.calendario = {
+        ano: dados.ano || ano,
+        mes: dados.mes || mes,
+        eventos: Array.isArray(dados.eventos) ? dados.eventos : [],
+    };
+    renderCalendario();
+}
+
+function mudarMes(delta) {
+    let { ano, mes } = estado.calendario;
+    mes += delta;
+    if (mes < 1) { mes = 12; ano -= 1; }
+    if (mes > 12) { mes = 1; ano += 1; }
+    estado.calendario.ano = ano;
+    estado.calendario.mes = mes;
+    carregarCalendario().catch((erro) => {
+        if (el.calendarioGrade) {
+            el.calendarioGrade.innerHTML = `<p class="vazio">Falha ao carregar: ${escapar(erro.message)}</p>`;
+        }
+    });
+}
+
+function irParaHoje() {
+    const agora = new Date();
+    estado.calendario.ano = agora.getFullYear();
+    estado.calendario.mes = agora.getMonth() + 1;
+    carregarCalendario().catch(() => { /* ignora */ });
+}
+
+function renderCalendario() {
+    if (!el.calendarioGrade) return;
+    const { ano, mes, eventos } = estado.calendario;
+    const nomesMeses = new Date(ano, mes - 1, 1)
+        .toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    const tituloMes = nomesMeses.charAt(0).toUpperCase() + nomesMeses.slice(1);
+    if (el.calendarioTitulo) el.calendarioTitulo.textContent = tituloMes;
+
+    const statusOrdem = ["concluido", "falhou", "cancelado", "em_execucao", "pendente"];
+    if (el.calendarioLegenda) {
+        el.calendarioLegenda.innerHTML = statusOrdem.map((status) => `
+            <span><i style="--cor:${corJob(status)}"></i>${rotuloJob(status)}</span>`).join("");
+    }
+
+    const porData = {};
+    eventos.forEach((evento) => {
+        const chave = evento.data || (evento.iniciado_em || evento.criado_em || "").slice(0, 10);
+        if (!chave) return;
+        (porData[chave] ||= []).push(evento);
+    });
+
+    const primeiro = new Date(ano, mes - 1, 1);
+    const deslocamento = (primeiro.getDay() + 6) % 7; // segunda-feira como primeiro dia
+    const totalDias = new Date(ano, mes, 0).getDate();
+    const hoje = new Date().toISOString().slice(0, 10);
+    const partes = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+        .map((dia) => `<div class="cal-dia-semana">${dia}</div>`);
+
+    for (let i = 0; i < deslocamento; i += 1) {
+        partes.push('<div class="cal-dia fora" aria-hidden="true"></div>');
+    }
+    for (let dia = 1; dia <= totalDias; dia += 1) {
+        const chave = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+        const doDia = porData[chave] || [];
+        const visiveis = doDia.slice(0, 3);
+        const botoes = visiveis.map((evento) => {
+            const cor = corJob(evento.status);
+            const titulo = `#${evento.id} ${evento.processo_nome || "sem processo"} · ${rotuloJob(evento.status)} · ${hora(evento.iniciado_em || evento.criado_em)}`;
+            return `<button type="button" class="cal-evento" style="--cor:${cor}"
+                onclick="abrirJob(${Number(evento.id)})" title="${escapar(titulo)}">
+                #${evento.id} ${escapar(evento.processo_nome || "sem processo")}</button>`;
+        }).join("");
+        const extra = doDia.length > visiveis.length
+            ? `<span class="cal-mais">+${doDia.length - visiveis.length} mais</span>`
+            : "";
+        partes.push(`
+            <div class="cal-dia${chave === hoje ? " hoje" : ""}">
+                <span class="cal-numero">${dia}</span>
+                ${botoes}${extra}
+            </div>`);
+    }
+    const restantes = (7 - ((deslocamento + totalDias) % 7)) % 7;
+    for (let i = 0; i < restantes; i += 1) {
+        partes.push('<div class="cal-dia fora" aria-hidden="true"></div>');
+    }
+    el.calendarioGrade.innerHTML = partes.join("");
+}
+
 function descricaoDias(t) {
     const dias = (t.dias_semana ? String(t.dias_semana).split(",") : [])
         .map((n) => Number(n)).filter((n) => n >= 1 && n <= 7).sort();
@@ -728,7 +920,7 @@ function ehPacote(processo) {
 function renderAutomacoes() {
     const itens = estado.processos.filter(ehPacote);
     if (!itens.length) {
-        el.automacoes.innerHTML = `<tr><td colspan="6"><p class="vazio">Nenhuma automação publicada ainda. Envie um .zip ou instale de um repositório Git acima.</p></td></tr>`;
+        el.automacoes.innerHTML = `<tr><td colspan="7"><p class="vazio">Nenhuma automação publicada ainda. Envie um .zip ou instale de um repositório Git acima.</p></td></tr>`;
         return;
     }
     el.automacoes.innerHTML = itens.map((p) => {
@@ -739,6 +931,8 @@ function renderAutomacoes() {
         const btnAtualizar = doGit
             ? `<button class="acao" onclick="atualizarAutomacaoGit('${escapar(p.origem)}','${escapar(p.origem_ref || "")}')">Atualizar</button>`
             : "";
+        const qtdVars = Object.keys(p.variaveis || {}).length;
+        const btnVariaveis = `<button class="acao" onclick="abrirVariaveis(${Number(p.id)})">Variáveis${qtdVars ? ` (${qtdVars})` : ""}</button>`;
         return `
         <tr>
             <td>${escapar(p.nome)}</td>
@@ -746,9 +940,43 @@ function renderAutomacoes() {
             <td class="obs">${escapar(p.fluxo || "")}</td>
             <td>${Number(p.usa_navegador) ? "sim" : "não"}</td>
             <td>${origemTxt}</td>
+            <td>${btnVariaveis}</td>
             <td>${btnAtualizar}<button class="acao perigo" onclick="removerAutomacao('${escapar(p.nome)}')">Remover</button></td>
         </tr>`;
     }).join("");
+}
+
+function abrirVariaveis(processoId) {
+    const processo = estado.processos.find((p) => Number(p.id) === Number(processoId));
+    if (!processo || !el.dialogVariaveis) return;
+    estado.processoVariaveis = processo.id;
+    if (el.variaveisProcesso) el.variaveisProcesso.textContent = processo.nome;
+    if (el.variaveisTexto) {
+        const variaveis = processo.variaveis || {};
+        el.variaveisTexto.value = Object.entries(variaveis)
+            .map(([chave, valor]) => `${chave}=${valor}`)
+            .join("\n");
+    }
+    if (el.variaveisErro) el.variaveisErro.textContent = "";
+    el.dialogVariaveis.showModal();
+}
+
+async function salvarVariaveis(evento) {
+    evento.preventDefault();
+    if (!estado.processoVariaveis) return;
+    if (el.variaveisErro) el.variaveisErro.textContent = "";
+    try {
+        const dados = await enviarJSON(
+            `/api/orq/processos/${estado.processoVariaveis}/variaveis`,
+            { texto: el.variaveisTexto.value },
+        );
+        const processo = estado.processos.find((p) => Number(p.id) === Number(estado.processoVariaveis));
+        if (processo) processo.variaveis = dados.variaveis || {};
+        el.dialogVariaveis.close();
+        carregar();
+    } catch (erro) {
+        if (el.variaveisErro) el.variaveisErro.textContent = erro.message;
+    }
 }
 
 async function enviarPacote(evento) {
@@ -1297,7 +1525,7 @@ window.addEventListener("hashchange", () => {
     if (TITULOS[aba]) trocarAba(aba);
 });
 const abaInicial = (location.hash || "").replace("#", "");
-if (TITULOS[abaInicial]) trocarAba(abaInicial);
+trocarAba(TITULOS[abaInicial] ? abaInicial : "jobs");
 el.formLogin.addEventListener("submit", entrar);
 if (el.btnSair) el.btnSair.addEventListener("click", sair);
 if (el.btnSairTopo) el.btnSairTopo.addEventListener("click", sair);
@@ -1312,6 +1540,13 @@ el.detalheFilaFechar.addEventListener("click", () => {
 });
 document.querySelectorAll(".aba").forEach((b) =>
     b.addEventListener("click", () => trocarAba(b.dataset.aba)));
+if (el.btnAgendaLista) el.btnAgendaLista.addEventListener("click", () => mudarVisaoAgenda("lista"));
+if (el.btnAgendaCalendario) el.btnAgendaCalendario.addEventListener("click", () => mudarVisaoAgenda("calendario"));
+if (el.calPrev) el.calPrev.addEventListener("click", () => mudarMes(-1));
+if (el.calNext) el.calNext.addEventListener("click", () => mudarMes(1));
+if (el.calHoje) el.calHoje.addEventListener("click", irParaHoje);
+if (el.formVariaveis) el.formVariaveis.addEventListener("submit", salvarVariaveis);
+if (el.variaveisCancelar) el.variaveisCancelar.addEventListener("click", () => el.dialogVariaveis.close());
 atualizarTipoTrigger();
 
 // ---------- tema claro/escuro ----------

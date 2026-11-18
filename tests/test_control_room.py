@@ -579,3 +579,101 @@ def test_executores_da_fila_sao_removidos_junto_com_a_fila():
     fila = servico.criar_fila("fila-limpa", p1["id"], processos=[p1["id"], p2["id"]])
     servico.apagar_fila(fila["id"])
     assert servico.listar_filas() == []
+
+
+# ----------------------------------------------------------------------
+# Variáveis de ambiente por automação
+# ----------------------------------------------------------------------
+def test_variaveis_de_ambiente_por_processo():
+    import pytest
+
+    processo = _criar_processo()
+    assert servico.obter_variaveis_processo(processo["id"]) == {}
+
+    salvas = servico.definir_variaveis_processo(
+        processo["id"],
+        "API_URL=https://exemplo.com\nMODO=teste",
+    )
+    assert salvas == {"API_URL": "https://exemplo.com", "MODO": "teste"}
+    assert servico.obter_variaveis_processo(processo["id"]) == salvas
+    assert servico.listar_processos()[0]["variaveis"] == salvas
+
+    assert servico.definir_variaveis_processo(processo["id"], {}) == {}
+    with pytest.raises(ValueError):
+        servico.definir_variaveis_processo(processo["id"], {"1_INVALIDO": "x"})
+    assert servico.definir_variaveis_processo(9999, {}) is None
+
+
+def test_job_carrega_variaveis_do_processo_e_agente_extrai():
+    from core.control_room.agente import Agente
+
+    processo = _criar_processo()
+    servico.definir_variaveis_processo(processo["id"], {"TOKEN_API": "abc"})
+    job = servico.criar_job(processo["id"])
+
+    assert job["processo_variaveis"] == '{"TOKEN_API": "abc"}'
+    assert Agente._variaveis_do_job(job) == {"TOKEN_API": "abc"}
+    assert Agente._variaveis_do_job({"processo_variaveis": "inválido"}) == {}
+
+
+def test_rota_de_variaveis_exige_permissao_de_automacao():
+    rota = "/api/orq/processos/1/variaveis"
+    assert not servidor_orq._rota_de_agente("POST", rota)
+    assert servidor_orq._permissao_da_rota("POST", rota) == "pacotes.instalar"
+
+
+# ----------------------------------------------------------------------
+# Dashboard e calendário
+# ----------------------------------------------------------------------
+def test_resumo_traz_taxa_de_sucesso_e_historico():
+    processo = _criar_processo()
+    servico.registrar_maquina("maq-dash")
+
+    ok = servico.criar_job(processo["id"])
+    servico.reservar_proximo_job("maq-dash")
+    servico.concluir_job(ok["id"], sucesso=True)
+
+    falha = servico.criar_job(processo["id"])
+    servico.reservar_proximo_job("maq-dash")
+    servico.concluir_job(falha["id"], sucesso=False)
+
+    dados = servico.resumo()
+    assert dados["taxa_sucesso"] == 50.0
+    assert dados["finalizados"] == 2
+    assert len(dados["historico"]) == 7
+    assert dados["execucoes_7d"] >= 2
+
+
+def test_calendario_lista_execucoes_do_mes():
+    import pytest
+
+    processo = _criar_processo()
+    job = servico.criar_job(processo["id"])
+    agora = datetime.now()
+
+    dados = servico.listar_calendario(agora.year, agora.month)
+    assert dados["ano"] == agora.year
+    assert dados["mes"] == agora.month
+    evento = next(e for e in dados["eventos"] if e["id"] == job["id"])
+    assert evento["data"] == agora.strftime("%Y-%m-%d")
+    assert evento["processo_nome"] == processo["nome"]
+
+    with pytest.raises(ValueError):
+        servico.listar_calendario(agora.year, 13)
+
+
+def test_ambiente_com_variaveis_aplica_e_restaura(monkeypatch):
+    import os
+
+    from core.control_room.agente import Agente
+
+    agente = Agente(control_room="http://127.0.0.1:1", maquina="teste", capturar_logs=False)
+    monkeypatch.setenv("CAPIVARA_EXISTENTE", "original")
+    monkeypatch.delenv("CAPIVARA_NOVA", raising=False)
+
+    with agente._ambiente_com_variaveis({"CAPIVARA_EXISTENTE": "novo", "CAPIVARA_NOVA": "123"}):
+        assert os.environ["CAPIVARA_EXISTENTE"] == "novo"
+        assert os.environ["CAPIVARA_NOVA"] == "123"
+
+    assert os.environ["CAPIVARA_EXISTENTE"] == "original"
+    assert "CAPIVARA_NOVA" not in os.environ

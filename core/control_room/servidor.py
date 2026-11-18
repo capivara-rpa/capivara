@@ -20,6 +20,7 @@ import socket
 import threading
 import time
 import webbrowser
+from datetime import datetime
 from http.cookies import SimpleCookie
 from pathlib import Path
 
@@ -126,7 +127,7 @@ def _exige_sessao(metodo: str, rota: str) -> bool:
 
 def _permissao_da_rota(metodo: str, rota: str) -> str | None:
     """Permissão exigida por uma rota administrativa (``None`` = só autenticação)."""
-    if rota.startswith(("/api/orq/pacotes", "/api/orq/automacoes")):
+    if rota.startswith(("/api/orq/pacotes", "/api/orq/automacoes", "/api/orq/processos")):
         return "pacotes.instalar"
     if rota.startswith("/api/orq/jobs/") and rota.endswith("/cancelar"):
         return "jobs.cancelar"
@@ -263,6 +264,14 @@ class ManipuladorControlRoom(ManipuladorPainel):
             return
         if rota == "/api/orq/painel":
             self._json(200, servico.montar_painel())
+        elif rota == "/api/orq/calendario":
+            agora = datetime.now()
+            ano = self._inteiro(self._primeiro(query, "ano")) or agora.year
+            mes = self._inteiro(self._primeiro(query, "mes")) or agora.month
+            try:
+                self._json(200, servico.listar_calendario(ano, mes))
+            except ValueError as erro:
+                self._json(400, {"erro": str(erro)})
         elif rota == "/api/orq/eu":
             self._json(200, {"sessao": self._sessao_atual(), "auth": LAGOA_AUTH})
         elif rota == "/api/orq/eventos":
@@ -283,6 +292,16 @@ class ManipuladorControlRoom(ManipuladorPainel):
             self._json(200, {"jobs": servico.listar_jobs(limite=100)})
         elif rota.startswith("/api/orq/jobs/"):
             self._obter_job(rota)
+        elif rota.startswith("/api/orq/processos/") and rota.endswith("/variaveis"):
+            pedaco = rota[len("/api/orq/processos/"):-len("/variaveis")]
+            if not pedaco.isdigit():
+                self._json(400, {"erro": "Id de processo inválido."})
+                return
+            variaveis = servico.obter_variaveis_processo(int(pedaco))
+            if variaveis is None:
+                self._json(404, {"erro": "Processo não encontrado."})
+            else:
+                self._json(200, {"processo_id": int(pedaco), "variaveis": variaveis})
         elif rota == "/api/orq/assets":
             self._json(200, {"assets": servico.listar_assets(mascarar=True)})
         elif rota.startswith("/api/orq/assets/") and rota.endswith("/versoes"):
@@ -532,6 +551,13 @@ class ManipuladorControlRoom(ManipuladorPainel):
             and partes[4] in ("ativo", "executar")
         ):
             self._acao_trigger(partes[3], partes[4], corpo)
+        # /api/orq/processos/<id>/variaveis
+        elif (
+            len(partes) == 5
+            and partes[:3] == ["api", "orq", "processos"]
+            and partes[4] == "variaveis"
+        ):
+            self._salvar_variaveis_processo(partes[3], corpo)
         # /api/orq/automacoes/<nome>/remover
         elif (
             len(partes) == 5
@@ -915,6 +941,24 @@ class ManipuladorControlRoom(ManipuladorPainel):
             ator=corpo.get("ator"),
         )
         self._json(201, {"permissao": permissao})
+
+    def _salvar_variaveis_processo(self, pedaco_id: str, corpo: dict) -> None:
+        if not pedaco_id.isdigit():
+            self._json(400, {"erro": "Id de processo inválido."})
+            return
+        try:
+            variaveis = servico.definir_variaveis_processo(
+                int(pedaco_id),
+                corpo.get("variaveis") if "variaveis" in corpo else corpo.get("texto"),
+                ator=corpo.get("ator"),
+            )
+        except ValueError as erro:
+            self._json(400, {"erro": str(erro)})
+            return
+        if variaveis is None:
+            self._json(404, {"erro": "Processo não encontrado."})
+            return
+        self._json(200, {"processo_id": int(pedaco_id), "variaveis": variaveis})
 
     def _criar_job(self, corpo: dict) -> None:
         processo_id = corpo.get("processo_id")
