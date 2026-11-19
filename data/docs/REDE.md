@@ -37,6 +37,65 @@ No Mac, o serviço já sai configurado em um passo: `scripts/instalar_agente_mac
 > Se a máquina tiver firewall, libere a porta 8765 (ex.: no macOS,
 > Preferências → Rede → Firewall; no Windows, libere no instalador/Defender).
 
+### 1.1 Cadastro da máquina: automático ou pela Lagoa
+
+Há dois caminhos — os dois funcionam, mas o recomendado é cadastrar antes:
+
+| Caminho | Como funciona | Quando usar |
+|---|---|---|
+| **Cadastrar em Dispositivos** | Você informa nome, tags e observação; depois gera um **token exclusivo** para a máquina. | Produção, várias máquinas, auditoria. |
+| **Auto-cadastro pelo agente** | O agente chama `POST /api/orq/agente/<nome>/registrar` ao subir. A máquina aparece no painel e fica `online` no primeiro heartbeat. | Laboratório, teste rápido. |
+
+O nome em `--maquina` precisa ser **exatamente** o mesmo do cadastro. Se você
+cadastrou `PC-FINANCEIRO-01`, não suba o agente como `pc-financeiro-01` nem
+como o hostname padrão.
+
+Fluxo recomendado para cada máquina:
+
+1. Na aba **Dispositivos**, clique em **Cadastrar máquina** (nome + tags).
+2. Clique em **Gerar token** e copie o valor (aparece uma única vez).
+3. Na máquina, suba o agente com `--maquina`, `--tags`, `--lagoa` e `--token`.
+4. Confirme que o estado mudou para `online`.
+5. Dispare um job de teste e veja o trace.
+
+### 1.2 Código e dependências em cada máquina
+
+**A Lagoa não envia o código do robô para os agentes.** O painel central
+instala/cadastra processos, mas a execução acontece no processo Python do
+agente, na máquina dele. Portanto, cada máquina que vai rodar um robô precisa
+ter:
+
+- o projeto Capivara (clone do repositório ou pacote instalado);
+- as dependências do motor (`pip install -r requirements.txt` no `.venv`);
+- o **código do robô** que ela vai executar;
+- as dependências do robô — ou um `requirements.txt` na raiz do robô, que o
+  agente instala em um `.venv` isolado (`RPA_INSTALAR_DEPENDENCIAS=true`).
+
+Formas comuns de manter o código sincronizado:
+
+```bash
+# Git: clone uma vez e atualize antes do deploy
+git clone git@github.com:sua-empresa/robos.git
+cd robos
+git pull
+
+# Ou copie a pasta do robô para o mesmo caminho em todas as máquinas
+# (ex.: /opt/capivara/app/robos/meu_robo)
+```
+
+> `Enviar .zip` e `Instalar do Git` na Lagoa instalam o robô **no servidor**.
+> Se o job for executado em outra máquina, o código precisa existir lá também.
+> O agente **empacotado** (PyInstaller) não importa robôs externos — para
+> consumir automações publicadas, rode o agente do **fonte** (`.venv`).
+
+### 1.3 Ordem de subida (evita dor de cabeça)
+
+1. Suba a Lagoa no servidor e confirme `http://IP:8765/`.
+2. Cadastre as máquinas e gere os tokens.
+3. Prepare o código/dependências em cada máquina.
+4. Suba os agentes (`--uma-vez` para testar, depois como serviço).
+5. Só então dispare jobs e agendamentos.
+
 ## 2. Token: o que ele protege
 
 Quando `LAGOA_TOKEN` está **definido**, só as **rotas de agente** pedem o
@@ -132,3 +191,7 @@ auto-refresh por polling automaticamente.
 - [ ] Preferir Tailscale/overlay a abrir porta no roteador.
 - [ ] Agente como serviço (`scripts/instalar_agente_mac.sh`, Atalho/Tarefa no
       Windows, ou o pacote instalável) para reconectar sozinho.
+- [ ] Nome do agente igual ao cadastro em **Dispositivos**.
+- [ ] Código do robô e dependências presentes **em cada máquina** que vai
+      executá-lo (a Lagoa não empurra código para os agentes).
+- [ ] Job de teste concluído em cada máquina antes de ligar os agendamentos.

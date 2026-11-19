@@ -353,26 +353,163 @@ usuários, papéis e permissões (`jobs.disparar`, `maquinas.gerir`, `assets.ger
 
 ---
 
-## 10. Rodar agentes em outras máquinas (rede)
+## 10. Rodar várias máquinas apontando para uma Lagoa
 
-1. No servidor, aceite a rede e (recomendado) defina um token global:
+Este é o desenho mais comum em produção: **uma Lagoa central** (servidor) e
+**um agente em cada máquina** que vai executar robôs.
+
+```text
+                    rede local / VPN
+  ┌──────────────────────────────┐
+  │  SERVIDOR                    │
+  │  Lagoa :8765                 │
+  │  painel · banco · arquivos   │
+  └──────────────┬───────────────┘
+                 │ HTTP/HTTPS
+     ┌───────────┼───────────┐
+     │           │           │
+  ┌──▼───┐    ┌──▼───┐    ┌──▼───┐
+  │ PC 1 │    │ PC 2 │    │ PC 3 │
+  │agente│    │agente│    │agente│
+  └──────┘    └──────┘    └──────┘
+```
+
+### 10.1 O que fica em cada lugar
+
+| Onde | O que precisa ter |
+|---|---|
+| **Servidor da Lagoa** | O projeto Capivara, o banco (`data/orquestrador.db`) e o painel. É aqui que você cadastra máquinas, processos, filas, agendamentos e credenciais. |
+| **Cada máquina agente** | O projeto Capivara (fonte ou pacote instalado), as dependências dos robôs e o **código dos robôs** que ela vai executar. **Não precisa** subir a Lagoa nela. |
+
+> ⚠️ **Ponto mais importante:** instalar um robô pela Lagoa (`Enviar .zip`,
+> `Instalar do Git` ou `pacote.instalar_zip`) instala o código **no servidor**,
+> não o empurra para os agentes. Cada máquina que for executar aquele robô
+> precisa ter o mesmo código disponível localmente (clone do repositório,
+> `git pull`, cópia da pasta ou instalação do pacote). As dependências também
+> precisam existir na máquina — ou vir de um `requirements.txt` do robô, que o
+> agente instala em um `.venv` isolado.
+
+### 10.2 Passo a passo
+
+**1. No servidor, suba a Lagoa aceitando a rede**
+
+No `.env` do servidor:
 
 ```bash
-# .env do servidor
 HOST_LAGOA=0.0.0.0
+PORTA_LAGOA=8765
+
+# recomendado: token global para os agentes
 LAGOA_TOKEN="um-segredo-bem-grande"
 ```
 
-2. Na outra máquina, aponte o agente para o IP do servidor:
-
 ```bash
-python -m core.control_room.agente --maquina maquina-02 --tags "rh,sp" \
-    --lagoa http://10.0.0.5:8765 --token "um-segredo-bem-grande"
+bash scripts/lagoa.sh
+# ou: python -m core.control_room.servidor
 ```
 
-Para expor fora da rede local, prefira um **overlay** (Tailscale/ZeroTier) e/ou
-**HTTPS** (`--cert`/`--chave` ou `TLS_CERT`/`TLS_CHAVE`). Guia completo em
-[`data/docs/REDE.md`](data/docs/REDE.md).
+Descubra o IP do servidor na rede (ex.: `10.0.0.5`). Em outra máquina, teste
+`http://10.0.0.5:8765/` no navegador. Se não abrir, libere a porta `8765` no
+firewall do servidor.
+
+**2. Cadastre as máquinas (recomendado)**
+
+Na aba **Dispositivos**, cadastre cada máquina com o nome exato que o agente
+vai usar (ex.: `PC-FINANCEIRO-01`) e as tags do pool (ex.: `sp,financeiro`).
+Cadastrar antes permite gerar um **token exclusivo por máquina**.
+
+Também é possível deixar o agente se auto-cadastrar: basta subir o agente com
+`--maquina <nome>`. Nesse caso, a máquina aparece no painel assim que o primeiro
+heartbeat chegar.
+
+**3. Gere o token de cada máquina**
+
+Na tabela de **Dispositivos**, clique em **Gerar token** e copie o valor. Ele
+aparece **uma única vez** — só o hash fica no banco. Se perder, revogue e gere
+outro.
+
+**4. Prepare cada máquina agente**
+
+Em cada máquina, clone o projeto e crie o ambiente:
+
+```bash
+git clone git@github.com:capivara-rpa/capivara.git
+cd capivara
+
+python3.11 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Se o robô tiver `requirements.txt` próprio, o agente cria um `.venv` isolado
+para ele automaticamente na hora da execução (`RPA_INSTALAR_DEPENDENCIAS=true`,
+o padrão).
+
+**5. Suba o agente apontando para a Lagoa**
+
+```bash
+python -m core.control_room.agente \
+    --maquina PC-FINANCEIRO-01 \
+    --tags "sp,financeiro" \
+    --lagoa http://10.0.0.5:8765 \
+    --token "TOKEN-DA-MAQUINA"
+```
+
+Teste uma vez com `--uma-vez` para registrar/heartbeat e ver o log no terminal:
+
+```bash
+python -m core.control_room.agente --maquina PC-FINANCEIRO-01 \
+    --lagoa http://10.0.0.5:8765 --token "TOKEN-DA-MAQUINA" --uma-vez
+```
+
+**6. Deixe o agente como serviço (opcional, mas recomendado)**
+
+No **macOS**:
+
+```bash
+bash scripts/instalar_agente_mac.sh \
+    --maquina PC-FINANCEIRO-01 --tags "mac,sp" \
+    --lagoa http://10.0.0.5:8765 --token "TOKEN-DA-MAQUINA"
+```
+
+No **Windows**, use a Tarefa Agendada apontando para `scripts\agente.bat` (ou o
+atalho do instalador) com os mesmos argumentos. Em Linux, use `systemd` ou
+`cron @reboot`.
+
+**7. Confirme no painel e dispare um job**
+
+A máquina deve sair de `offline` para `online`. Dispare um job escolhendo a
+máquina (ou “qualquer”) e acompanhe o trace. Se o job ficar `pendente`, veja a
+seção de solução de problemas.
+
+### 10.3 Checklist de uma máquina nova
+
+- [ ] Consegue abrir `http://IP-DO-SERVIDOR:8765/` no navegador.
+- [ ] O nome em `--maquina` é **idêntico** ao cadastrado em **Dispositivos**.
+- [ ] O token é o daquela máquina (não o global de outra).
+- [ ] O projeto Capivara está na máquina e o `.venv` tem as dependências.
+- [ ] O **código do robô** está na máquina (clone, `git pull` ou cópia).
+- [ ] O agente subiu com `--uma-vez` sem erro e a máquina ficou `online`.
+- [ ] Um job de teste concluiu e gerou trace.
+
+### 10.4 Sincronização do código dos robôs
+
+A Lagoa **não distribui código** para os agentes. Escolha um fluxo:
+
+- **Git (recomendado):** cada máquina tem o clone do repositório do robô e roda
+  `git pull` antes do deploy (ou um agendamento/cron faz isso).
+- **Pacote:** publique o robô como pacote Python interno e instale no `.venv` de
+  cada máquina.
+- **Pasta compartilhada:** monte a mesma pasta em todas as máquinas e aponte o
+  processo para o mesmo caminho.
+
+Depois de atualizar o código em todas as máquinas, o próximo job já usa a versão
+nova. Se o robô mudou dependências, atualize o `requirements.txt` e o `.venv`.
+
+> Para expor a Lagoa fora da rede local, prefira um **overlay**
+> (Tailscale/ZeroTier) e/ou **HTTPS** (`--cert`/`--chave` ou
+> `TLS_CERT`/`TLS_CHAVE`). Guia completo em
+> [`data/docs/REDE.md`](data/docs/REDE.md).
 
 ---
 

@@ -369,6 +369,12 @@ painel de monitoramento.
 Tudo com **SQLite + biblioteca padrão** (o agente usa `requests`), sem novas
 dependências.
 
+> **Várias máquinas:** a Lagoa é central; cada máquina rodando um agente precisa
+> ter o **código do robô** e as dependências localmente. `Enviar .zip` e
+> `Instalar do Git` instalam no servidor, não empurram código para os agentes.
+> Passo a passo completo em [`GUIA.md`](GUIA.md) (seção 10) e
+> [`data/docs/REDE.md`](data/docs/REDE.md).
+
 ```bash
 # 1. Popular com máquinas/processos/jobs de exemplo e subir a Lagoa
 bash scripts/lagoa.sh --exemplos     # Linux / macOS

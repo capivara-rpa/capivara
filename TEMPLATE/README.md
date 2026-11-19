@@ -52,8 +52,7 @@ from app.robos.meu_robo.functions.auxiliar import minha_funcao
 > público**: coloque este robô (com o `rpa.json`) num repositório e use
 > **Automações → Instalar do Git** informando a URL HTTPS e, se quiser, o
 > branch/tag. Robôs de Git ganham o botão **Atualizar** (clona de novo e substitui
-> a versão em uso com um clique). Requer o `git` instalado na máquina da Control
-> Room.
+> a versão em uso com um clique). Requer o `git` instalado na máquina da Lagoa.
 
 ## Dependências próprias (requirements.txt)
 
@@ -105,6 +104,9 @@ def rodar(navegador=None, agente=None, item=None):
 
 - O robô roda **dentro do ambiente do agente**: as dependências dele (pandas,
   selenium, etc.) precisam estar instaladas na máquina onde o agente roda.
+- **A Lagoa não distribui o código do robô para os agentes.** O upload/instalação
+  pela Lagoa cadastra o processo no servidor; cada máquina que for executá-lo
+  precisa ter o código localmente (clone do repo, `git pull` ou cópia da pasta).
 - Upload só **instala e cadastra** o processo; executar é disparar um **job**
   (aba Jobs) ou criar um **agendamento** (aba Agendamentos).
 - O agente **empacotado** (PyInstaller) não importa robôs externos — use o agente
