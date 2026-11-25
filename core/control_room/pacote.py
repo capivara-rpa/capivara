@@ -40,6 +40,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import uuid
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -291,31 +292,111 @@ def _clonar(url: str, ref: str | None, destino: Path) -> None:
         )
 
 
+def _ambiente_git(destino: Path) -> dict[str, str]:
+    return {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/local/bin"),
+        "HOME": os.environ.get("HOME", str(destino)),
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_ASKPASS": "echo",
+        "GIT_LFS_SKIP_SMUDGE": "1",
+    }
+
+
+def sha_remoto(url: str, ref: str | None = None) -> str:
+    """Retorna o SHA do commit no topo da branch/tag remota (``git ls-remote``)."""
+    url = _validar_url_git(url)
+    ref = _validar_ref(ref)
+    if shutil.which("git") is None:
+        raise ValueError(
+            "O comando 'git' não está instalado nesta máquina. "
+            "Instale o Git para atualizar automações por repositório."
+        )
+    referencia = f"refs/heads/{ref}" if ref else "HEAD"
+    processo = subprocess.run(
+        ["git", "ls-remote", url, referencia],
+        capture_output=True,
+        text=True,
+        timeout=_CLONE_TIMEOUT,
+        env=_ambiente_git(Path(os.getcwd())),
+    )
+    if processo.returncode != 0:
+        detalhe = (processo.stderr or "").strip().splitlines()
+        resumo = detalhe[-1] if detalhe else "erro desconhecido"
+        raise ValueError(f"Não foi possível consultar o repositório. ({resumo})")
+    linhas = [linha for linha in processo.stdout.splitlines() if linha.strip()]
+    if not linhas:
+        raise ValueError(f"Branch/tag '{ref or 'padrão'}' não encontrada no repositório.")
+    return linhas[0].split()[0].strip()
+
+
+def _sha_local(repo: Path) -> str | None:
+    """SHA do commit já clonado (evita um segundo acesso à rede)."""
+    processo = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        timeout=_CLONE_TIMEOUT,
+        env=_ambiente_git(repo),
+    )
+    if processo.returncode != 0:
+        return None
+    return processo.stdout.strip() or None
+
+
 def _instalar_do_diretorio(
     origem_pasta: Path,
     destino_base: Path,
     origem: str | None = None,
     origem_ref: str | None = None,
     substituir: bool = False,
+    commit_sha: str | None = None,
 ) -> dict[str, Any]:
     """Valida o manifesto de uma pasta de robô, instala e cadastra o processo."""
     manifest = _carregar_manifesto(origem_pasta)
     _validar_entrada(origem_pasta, manifest)
     nome = str(manifest["nome"]).strip().lower()
 
+    destino_base.mkdir(parents=True, exist_ok=True)
     destino_robo = destino_base / nome
-    if destino_robo.exists():
-        if not substituir:
-            raise ValueError(
-                f"Robô '{nome}' já instalado. Use 'Atualizar' ou remova app/robos/{nome}."
-            )
-        shutil.rmtree(destino_robo)
+    if destino_robo.exists() and not substituir:
+        raise ValueError(
+            f"Robô '{nome}' já instalado. Use 'Atualizar' ou remova app/robos/{nome}."
+        )
 
-    shutil.copytree(origem_pasta, destino_robo)
-    # a pasta .git não faz parte do robô instalado
-    git_dir = destino_robo / ".git"
-    if git_dir.exists():
-        shutil.rmtree(git_dir, ignore_errors=True)
+    # Troca atômica: tudo acontece dentro de PASTA_ROBOS (mesmo volume), então
+    # rename não cruza dispositivos. Um job em execução continua lendo a pasta
+    # antiga até terminar; o próximo já pega a nova.
+    sufixo = uuid.uuid4().hex[:12]
+    staging = destino_base / f".rpa-novo-{nome}-{sufixo}"
+    backup = destino_base / f".rpa-antigo-{nome}-{sufixo}"
+    venv_guardado = destino_base / f".rpa-venv-{nome}-{sufixo}"
+    try:
+        shutil.copytree(origem_pasta, staging)
+        git_dir = staging / ".git"
+        if git_dir.exists():
+            shutil.rmtree(git_dir, ignore_errors=True)
+
+        if destino_robo.exists():
+            venv_atual = destino_robo / ".venv"
+            if venv_atual.exists():
+                venv_atual.rename(venv_guardado)
+            destino_robo.rename(backup)
+        staging.rename(destino_robo)
+        if venv_guardado.exists():
+            venv_guardado.rename(destino_robo / ".venv")
+    except BaseException:
+        if backup.exists() and not destino_robo.exists():
+            backup.rename(destino_robo)
+        if venv_guardado.exists():
+            destino = destino_robo / ".venv"
+            if destino.exists():
+                shutil.rmtree(destino, ignore_errors=True)
+            venv_guardado.rename(destino)
+        raise
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+        shutil.rmtree(backup, ignore_errors=True)
+        shutil.rmtree(venv_guardado, ignore_errors=True)
 
     _garantir_importavel(destino_base)
     processo = servico.criar_processo(
@@ -325,6 +406,7 @@ def _instalar_do_diretorio(
         usa_navegador=bool(manifest.get("usa_navegador", False)),
         origem=origem,
         origem_ref=origem_ref,
+        commit_sha=commit_sha,
     )
     logger.success(f"[pacote] robô '{nome}' v{manifest.get('versao', '')} instalado em {destino_robo}")
     return {
@@ -334,6 +416,7 @@ def _instalar_do_diretorio(
         "processo": processo,
         "origem": origem,
         "origem_ref": origem_ref,
+        "commit_sha": commit_sha,
     }
 
 
@@ -350,7 +433,13 @@ def instalar_git(
         clonado = Path(tmp) / "repo"
         _clonar(url, ref, clonado)
         # se o repo tiver uma subpasta com rpa.json na raiz, usa a raiz
-        return _instalar_do_diretorio(clonado, destino_base, origem=url, origem_ref=ref)
+        return _instalar_do_diretorio(
+            clonado,
+            destino_base,
+            origem=url,
+            origem_ref=ref,
+            commit_sha=_sha_local(clonado),
+        )
 
 
 def atualizar_git(
@@ -366,7 +455,12 @@ def atualizar_git(
         clonado = Path(tmp) / "repo"
         _clonar(url, ref, clonado)
         return _instalar_do_diretorio(
-            clonado, destino_base, origem=url, origem_ref=ref, substituir=True
+            clonado,
+            destino_base,
+            origem=url,
+            origem_ref=ref,
+            substituir=True,
+            commit_sha=_sha_local(clonado),
         )
 
 

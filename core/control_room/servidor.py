@@ -29,12 +29,14 @@ from urllib.parse import unquote, urlparse
 from loguru import logger
 
 from core.control_room import servico
+from core.control_room.atualizador import iniciar_atualizador, verificar_atualizacoes
 from core.control_room.banco import iniciar_banco as iniciar_banco_orq
 from core.monitor.banco import iniciar_banco as iniciar_banco_monitor
 from core.monitor.servidor import PASTA_ESTATICO as PASTA_MONITOR
 from core.monitor.servidor import ManipuladorPainel, ThreadingHTTPServer, _aplicar_tls
 from settings.parametros import (
     ABRIR_PAINEL,
+    AUTO_ATUALIZAR,
     HOST_LAGOA,
     INTERVALO_TRIGGERS,
     LAGOA_AUTH,
@@ -558,6 +560,16 @@ class ManipuladorControlRoom(ManipuladorPainel):
             and partes[4] == "variaveis"
         ):
             self._salvar_variaveis_processo(partes[3], corpo)
+        # /api/orq/processos/<id>/auto-atualizar
+        elif (
+            len(partes) == 5
+            and partes[:3] == ["api", "orq", "processos"]
+            and partes[4] == "auto-atualizar"
+        ):
+            self._acao_auto_atualizar(partes[3], corpo)
+        # /api/orq/automacoes/verificar  (roda o polling agora)
+        elif partes == ["api", "orq", "automacoes", "verificar"]:
+            self._json(200, verificar_atualizacoes())
         # /api/orq/automacoes/<nome>/remover
         elif (
             len(partes) == 5
@@ -960,6 +972,22 @@ class ManipuladorControlRoom(ManipuladorPainel):
             return
         self._json(200, {"processo_id": int(pedaco_id), "variaveis": variaveis})
 
+    def _acao_auto_atualizar(self, pedaco_id: str, corpo: dict) -> None:
+        if not pedaco_id.isdigit():
+            self._json(400, {"erro": "Id de processo inválido."})
+            return
+        ativo = corpo.get("ativo", True)
+        if not isinstance(ativo, bool):
+            self._json(400, {"erro": "Informe 'ativo' como verdadeiro/falso."})
+            return
+        if servico.obter_processo(int(pedaco_id)) is None:
+            self._json(404, {"erro": "Processo não encontrado."})
+            return
+        servico.definir_auto_atualizar(
+            int(pedaco_id), ativo, ator=corpo.get("ator") or "painel"
+        )
+        self._json(200, {"processo_id": int(pedaco_id), "auto_atualizar": ativo})
+
     def _criar_job(self, corpo: dict) -> None:
         processo_id = corpo.get("processo_id")
         maquina_id = corpo.get("maquina_id")
@@ -1058,6 +1086,8 @@ def iniciar_lagoa(
     servico.garantir_admin_padrao()
     servico.limpar_sessoes_expiradas()
     _iniciar_agendador()
+    if AUTO_ATUALIZAR:
+        iniciar_atualizador()
 
     servidor = ThreadingHTTPServer((host, porta), ManipuladorControlRoom)
     esquema = "https" if _aplicar_tls(servidor, cert, chave) else "http"

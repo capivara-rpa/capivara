@@ -677,3 +677,37 @@ def test_ambiente_com_variaveis_aplica_e_restaura(monkeypatch):
 
     assert os.environ["CAPIVARA_EXISTENTE"] == "original"
     assert "CAPIVARA_NOVA" not in os.environ
+
+
+def test_conectar_fecha_conexao_e_faz_rollback(monkeypatch):
+    import sqlite3
+
+    import pytest
+
+    conexoes = []
+    connect_original = sqlite3.connect
+
+    def connect_espiado(*args, **kwargs):
+        conexao = connect_original(*args, **kwargs)
+        conexoes.append(conexao)
+        return conexao
+
+    monkeypatch.setattr(banco_orq.sqlite3, "connect", connect_espiado)
+
+    for _ in range(20):
+        with banco_orq.conectar():
+            pass
+
+    assert len(conexoes) == 20
+    for conexao in conexoes:
+        with pytest.raises(sqlite3.ProgrammingError):
+            conexao.execute("SELECT 1")
+
+    with pytest.raises(RuntimeError):
+        with banco_orq.conectar() as conexao:
+            conexao.execute(
+                "INSERT INTO maquinas (nome, ultima_atividade, criado_em) VALUES ('tmp', 'x', 'x')"
+            )
+            raise RuntimeError("falha de propósito")
+
+    assert banco_orq.obter_maquina_por_nome("tmp") is None

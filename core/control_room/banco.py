@@ -14,8 +14,11 @@ passo de cada job.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
+from core.monitor.banco import agora_iso
 from settings.parametros import BANCO_ORQUESTRADOR
 
 # ----------------------------------------------------------------------
@@ -337,17 +340,34 @@ _COLUNAS_EXTRA = {
         ("origem", "TEXT"),
         ("origem_ref", "TEXT"),
         ("variaveis", "TEXT"),
+        ("commit_sha", "TEXT"),
+        ("auto_atualizar", "INTEGER NOT NULL DEFAULT 0"),
+        ("ultima_atualizacao", "TEXT"),
+        ("ultimo_erro", "TEXT"),
     ],
 }
 
 
-def conectar() -> sqlite3.Connection:
-    """Abre conexão com o banco da Lagoa (cria a pasta se preciso)."""
+@contextmanager
+def conectar() -> Iterator[sqlite3.Connection]:
+    """Abre conexão com o banco da Lagoa e sempre fecha ao sair do ``with``.
+
+    O context manager nativo do ``sqlite3.Connection`` só faz commit/rollback;
+    não fecha a conexão. Sem o ``close()`` explícito, cada heartbeat da Lagoa
+    vaza um file descriptor até estourar o limite do launchd.
+    """
     BANCO_ORQUESTRADOR.parent.mkdir(parents=True, exist_ok=True)
     conexao = sqlite3.connect(BANCO_ORQUESTRADOR, timeout=10)
-    conexao.row_factory = sqlite3.Row
-    conexao.execute("PRAGMA foreign_keys = ON")
-    return conexao
+    try:
+        conexao.row_factory = sqlite3.Row
+        conexao.execute("PRAGMA foreign_keys = ON")
+        yield conexao
+        conexao.commit()
+    except BaseException:
+        conexao.rollback()
+        raise
+    finally:
+        conexao.close()
 
 
 def iniciar_banco() -> None:
@@ -391,6 +411,44 @@ def listar_maquinas() -> list[dict[str, Any]]:
 def listar_processos() -> list[dict[str, Any]]:
     with conectar() as conexao:
         return _linhas(conexao, "SELECT * FROM processos ORDER BY nome")
+
+
+def listar_processos_auto_atualizar() -> list[dict[str, Any]]:
+    """Processos de repositório Git marcados para atualização automática."""
+    with conectar() as conexao:
+        return _linhas(
+            conexao,
+            "SELECT * FROM processos WHERE auto_atualizar = 1 AND origem IS NOT NULL AND origem != '' ORDER BY nome",
+        )
+
+
+def definir_auto_atualizar(processo_id: int, ativo: bool) -> bool:
+    with conectar() as conexao:
+        cursor = conexao.execute(
+            "UPDATE processos SET auto_atualizar = ? WHERE id = ?",
+            (int(bool(ativo)), processo_id),
+        )
+        return cursor.rowcount > 0
+
+
+def registrar_resultado_atualizacao(
+    processo_id: int,
+    sha: str | None = None,
+    erro: str | None = None,
+) -> bool:
+    """Registra o SHA visto na última verificação (ou o erro, se falhou)."""
+    with conectar() as conexao:
+        cursor = conexao.execute(
+            """
+            UPDATE processos
+               SET commit_sha = COALESCE(?, commit_sha),
+                   ultima_atualizacao = ?,
+                   ultimo_erro = ?
+             WHERE id = ?
+            """,
+            (sha, agora_iso(), (erro or "")[:500] or None, processo_id),
+        )
+        return cursor.rowcount > 0
 
 
 def obter_processo(processo_id: int) -> dict[str, Any] | None:

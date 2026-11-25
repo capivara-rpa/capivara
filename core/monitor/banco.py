@@ -15,6 +15,8 @@ Os status seguem os pedidos do projeto: ``iniciado``, ``processando``,
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
@@ -107,13 +109,26 @@ def agora_iso() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
-def conectar() -> sqlite3.Connection:
-    """Abre uma conexão com o banco do monitor (cria a pasta se preciso)."""
+@contextmanager
+def conectar() -> Iterator[sqlite3.Connection]:
+    """Abre conexão com o banco do monitor e sempre fecha ao sair do ``with``.
+
+    O context manager nativo do ``sqlite3.Connection`` só faz commit/rollback;
+    não fecha a conexão. Sem o ``close()`` explícito, cada passo do trace vaza
+    um file descriptor.
+    """
     BANCO_MONITOR.parent.mkdir(parents=True, exist_ok=True)
     conexao = sqlite3.connect(BANCO_MONITOR, timeout=10)
-    conexao.row_factory = sqlite3.Row
-    conexao.execute("PRAGMA foreign_keys = ON")
-    return conexao
+    try:
+        conexao.row_factory = sqlite3.Row
+        conexao.execute("PRAGMA foreign_keys = ON")
+        yield conexao
+        conexao.commit()
+    except BaseException:
+        conexao.rollback()
+        raise
+    finally:
+        conexao.close()
 
 
 def iniciar_banco() -> None:

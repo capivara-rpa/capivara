@@ -75,3 +75,28 @@ def test_revisao_muda_ao_criar_execucao_e_passo():
 
     assert r0 != r1
     assert r1 != r2
+
+
+def test_conectar_fecha_conexao(monkeypatch):
+    import sqlite3
+
+    import pytest
+
+    conexoes = []
+    connect_original = sqlite3.connect
+
+    def connect_espiado(*args, **kwargs):
+        conexao = connect_original(*args, **kwargs)
+        conexoes.append(conexao)
+        return conexao
+
+    monkeypatch.setattr(banco.sqlite3, "connect", connect_espiado)
+
+    for _ in range(20):
+        with banco.conectar():
+            pass
+
+    assert len(conexoes) == 20
+    for conexao in conexoes:
+        with pytest.raises(sqlite3.ProgrammingError):
+            conexao.execute("SELECT 1")

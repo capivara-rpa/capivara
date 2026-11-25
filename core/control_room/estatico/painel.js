@@ -930,9 +930,13 @@ function renderAutomacoes() {
         return;
     }
     el.automacoes.innerHTML = itens.map((p) => {
-        const doGit = String(p.origem || "").startsWith("https://");
+        const doGit = Boolean(String(p.origem || "").trim());
+        const shaCurto = String(p.commit_sha || "").slice(0, 8);
+        const auto = Boolean(p.auto_atualizar);
         const origemTxt = doGit
             ? `<span class="tag git">git</span> <span class="obs">${escapar(p.origem_ref || "padrão")}</span>`
+                + (shaCurto ? `<br><span class="obs" title="${escapar(p.commit_sha)}">#${shaCurto}</span>` : "")
+                + `<br><button class="acao" onclick="alternarAutoAtualizar(${Number(p.id)}, ${auto ? "false" : "true"})">Auto: ${auto ? "sim" : "não"}</button>`
             : '<span class="tag pacote">pacote</span>';
         const btnAtualizar = doGit
             ? `<button class="acao" onclick="atualizarAutomacaoGit('${escapar(p.origem)}','${escapar(p.origem_ref || "")}')">Atualizar</button>`
@@ -1033,6 +1037,29 @@ async function atualizarAutomacaoGit(url, ref) {
     try {
         const dados = await enviarJSON("/api/orq/automacoes/git/atualizar", { url, ref });
         el.pacoteResultado.textContent = `Robô "${dados.nome}" atualizado (v${dados.versao}).`;
+        carregar();
+    } catch (erro) {
+        el.pacoteResultado.textContent = "Falha: " + erro.message;
+    }
+}
+
+async function alternarAutoAtualizar(processoId, ativo) {
+    try {
+        await enviarJSON(`/api/orq/processos/${Number(processoId)}/auto-atualizar`, { ativo });
+        carregar();
+    } catch (erro) {
+        alert("Falha ao alterar auto-atualização: " + erro.message);
+    }
+}
+
+async function verificarAtualizacoes() {
+    el.pacoteResultado.classList.remove("oculto");
+    el.pacoteResultado.textContent = "Verificando repositórios…";
+    try {
+        const r = await enviarJSON("/api/orq/automacoes/verificar", {});
+        el.pacoteResultado.textContent =
+            `Verificados: ${r.verificados} · Atualizados: ${r.atualizados} · ` +
+            `Sem mudança: ${r.ignorados} · Erros: ${r.erros}`;
         carregar();
     } catch (erro) {
         el.pacoteResultado.textContent = "Falha: " + erro.message;

@@ -133,7 +133,7 @@ def abrir_popup(
         logger.warning("Pop-up nativo disponível apenas no macOS; nada a exibir.")
         return True
 
-    titulo = "RPA Brasil — Teste"
+    titulo = "Capivara - Lagoa"
     script = (
         f'display dialog "{mensagem}" '
         f'buttons {{"OK"}} default button 1 with title "{titulo}" '

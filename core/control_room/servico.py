@@ -39,6 +39,7 @@ from core.control_room.banco import (
     MAQUINA_ROTULO,
     conectar,
     contagem_itens,
+    definir_auto_atualizar as _definir_auto_atualizar_banco,
     listar_assets as _listar_assets_brutos,
     listar_auditoria as _listar_auditoria_brutas,
     listar_empresas as _listar_empresas_brutas,
@@ -53,6 +54,7 @@ from core.control_room.banco import (
     listar_permissoes_do_papel as _listar_permissoes_do_papel_brutas,
     listar_permissoes_do_usuario as _listar_permissoes_do_usuario_brutas,
     listar_processos as _listar_processos_brutos,
+    listar_processos_auto_atualizar as _listar_processos_auto_atualizar_brutos,
     listar_processos_fila,
     listar_sessoes as _listar_sessoes_brutas,
     listar_triggers as _listar_triggers_brutos,
@@ -73,6 +75,7 @@ from core.control_room.banco import (
     obter_trigger,
     obter_usuario,
     obter_usuario_por_email,
+    registrar_resultado_atualizacao as _registrar_resultado_atualizacao_banco,
 )
 from core.monitor.banco import agora_iso
 from settings.parametros import (
@@ -332,21 +335,33 @@ def criar_processo(
     usa_navegador: bool = False,
     origem: str | None = None,
     origem_ref: str | None = None,
+    commit_sha: str | None = None,
 ) -> dict[str, Any]:
     """Cadastra (ou atualiza) um processo no catálogo."""
     with conectar() as conexao:
         conexao.execute(
             """
-            INSERT INTO processos (nome, descricao, fluxo, usa_navegador, ativo, criado_em, origem, origem_ref)
-            VALUES (?, ?, ?, ?, 1, ?, ?, ?)
+            INSERT INTO processos
+                (nome, descricao, fluxo, usa_navegador, ativo, criado_em, origem, origem_ref, commit_sha)
+            VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
             ON CONFLICT (nome) DO UPDATE SET
                 descricao = excluded.descricao,
                 fluxo = excluded.fluxo,
                 usa_navegador = excluded.usa_navegador,
                 origem = COALESCE(excluded.origem, processos.origem),
-                origem_ref = COALESCE(excluded.origem_ref, processos.origem_ref)
+                origem_ref = COALESCE(excluded.origem_ref, processos.origem_ref),
+                commit_sha = COALESCE(excluded.commit_sha, processos.commit_sha)
             """,
-            (nome, descricao, fluxo, int(usa_navegador), agora_iso(), origem, origem_ref),
+            (
+                nome,
+                descricao,
+                fluxo,
+                int(usa_navegador),
+                agora_iso(),
+                origem,
+                origem_ref,
+                commit_sha,
+            ),
         )
     logger.debug(f"[lagoa] processo '{nome}' cadastrado")
     processo = next((p for p in _listar_processos_brutos() if p["nome"] == nome), {})
@@ -355,6 +370,47 @@ def criar_processo(
 
 def listar_processos() -> list[dict[str, Any]]:
     return [_processo_publico(p) or {} for p in _listar_processos_brutos()]
+
+
+def listar_processos_auto_atualizar() -> list[dict[str, Any]]:
+    """Automações de Git com atualização automática ligada."""
+    return [_processo_publico(p) or {} for p in _listar_processos_auto_atualizar_brutos()]
+
+
+def definir_auto_atualizar(
+    processo_id: int,
+    ativo: bool,
+    ator: str | None = None,
+) -> bool:
+    """Liga/desliga o polling de Git para uma automação."""
+    if not _definir_auto_atualizar_banco(processo_id, ativo):
+        return False
+    registrar_auditoria(
+        "auto_atualizar",
+        "processo",
+        ator=ator,
+        detalhe=f"processo {processo_id}: auto_atualizar={bool(ativo)}",
+    )
+    return True
+
+
+def registrar_resultado_atualizacao(
+    processo_id: int,
+    sha: str | None = None,
+    erro: str | None = None,
+    ator: str = "lagoa",
+) -> bool:
+    """Registra SHA/erro da verificação de Git na automação e na auditoria."""
+    if not _registrar_resultado_atualizacao_banco(processo_id, sha=sha, erro=erro):
+        return False
+    registrar_auditoria(
+        "atualizacao_git",
+        "processo",
+        ator=ator,
+        resultado="erro" if erro else "ok",
+        detalhe=f"processo {processo_id}: {erro or (sha or '')}"[:500],
+    )
+    return True
 
 
 def obter_variaveis_processo(processo_id: int) -> dict[str, str] | None:

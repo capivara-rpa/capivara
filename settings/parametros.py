@@ -153,6 +153,12 @@ SEGUNDOS_OFFLINE = _como_int(os.getenv("SEGUNDOS_OFFLINE"), 20)
 # Intervalo (segundos) da verificação de agendamentos (triggers)
 INTERVALO_TRIGGERS = _como_int(os.getenv("INTERVALO_TRIGGERS"), 15)
 
+# Atualização automática das automações instaladas de repositório Git.
+# A Lagoa consulta `git ls-remote` no intervalo abaixo e troca o código quando o
+# commit da branch muda. Cada automação precisa estar marcada como auto-atualizável.
+AUTO_ATUALIZAR = _como_bool(os.getenv("AUTO_ATUALIZAR"), True)
+INTERVALO_ATUALIZACAO = max(30, _como_int(os.getenv("INTERVALO_ATUALIZACAO"), 300))
+
 # URL da Lagoa usada pelos robôs/CLI para consumir vault e filas
 LAGOA_URL = _env("LAGOA_URL", "CONTROL_ROOM_URL", padrao="http://127.0.0.1:8765").rstrip("/")
 CONTROL_ROOM_URL = LAGOA_URL
